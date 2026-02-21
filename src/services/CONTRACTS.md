@@ -1,56 +1,47 @@
-# Fitco Frontend API Contracts
+# Fitco Admin Dashboard API Contracts
 
-Set `VITE_API_BASE_URL` to use live backend APIs. Without it, mock data is used.
-If `VITE_API_USE_MOCKS_ON_ERROR=true`, failed live requests fallback to mocks.
+Set `VITE_API_BASE_URL` to your backend origin (example: `http://localhost:5000`).
+The dashboard app calls admin endpoints under `/api/v1/*`.
 
-## Auth
-- `POST /auth/login`
+## Auth (Admin)
+- `POST /api/v1/auth/admin/login`
   - request: `{ "email": string, "password": string }`
-  - response: `{ "token": string, "user"?: object }`
-- `POST /auth/verify-otp`
-  - request: `{ "email": string, "otp": string }`
-  - response: `{ "token": string, "user"?: object }`
-- `POST /auth/forgot-password`
+  - response: `{ "accessToken": string, "refreshToken": string, "user": object }`
+- `POST /api/v1/admin/forgot-password`
   - request: `{ "email": string }`
-  - response: `{ "success": boolean }`
-- `POST /auth/reset-password`
-  - request: `{ "email": string, "password": string, "confirmPassword": string }`
-  - response: `{ "success": boolean }`
+- `POST /api/v1/admin/verify-reset-otp`
+  - request: `{ "email": string, "otp": string }`
+- `POST /api/v1/admin/reset-password`
+  - request: `{ "email": string, "otp": string, "newPassword": string }`
+- `PATCH /api/v1/admin/password`
+  - request: `{ "currentPassword": string, "newPassword": string }`
 
 ## Dashboard
-- `GET /dashboard`
-  - accepted keys: `totalUsers | total_users | usersTotal`
-  - accepted keys: `totalRevenue | total_revenue | revenueTotal`
-  - accepted keys: `userRatio | user_ratio | monthlyUsers`
+- `GET /api/v1/dashboard/totals`
+- `GET /api/v1/dashboard/user-ratio?year=YYYY`
+- `GET /api/v1/dashboard/overview`
+- `GET /api/v1/dashboard/transactions?page=1&limit=300`
 
 ## Users
-- `GET /users`
-- `GET /users/blocked`
-  - accepted row keys: `id | sid | userId | user_id`, `name | fullName | full_name | userName | user_name`, `email`, `phone | phoneNo | phone_no`, `joinedDate | joined_date | date | created_at`
-
-## Earnings
-- `GET /earnings`
-  - accepted keys: `today | today_amount`, `thisMonth | this_month`, `totalRevenue | total_revenue | revenueTotal | revenue_total`
-- `GET /earnings/transactions`
-  - accepted row keys: `id | sid | transactionId | transaction_id`, `userId | user_id`, `name | userName | user_name | fullName | full_name`, `trxId | transaction_id | transactionId | reference`, `plan | plans | package | subscriptionPlan`, `price | amount | totalAmount | total_amount`, `date | created_at | createdAt`
+- `GET /api/v1/users?page=1&limit=300`
+- `PATCH /api/v1/users/:id/block`
+- `PATCH /api/v1/users/:id/unblock`
 
 ## Subscriptions
-- `GET /subscriptions`
-  - accepted row keys: `id | sid | subscriptionId | subscription_id`, `userId | user_id`, `name | userName | user_name | fullName | full_name`, `email`, `status | paymentStatus | payment_status`, `plan | plans | subscriptionPlan | package`, `expirationDate | expiration_date | date | endDate | end_date`
+- `GET /api/v1/subscriptions?page=1&limit=300`
+- `GET /api/v1/dashboard/subscription-pricing`
+- `PATCH /api/v1/dashboard/subscription-pricing`
 
 ## Reports
-- `GET /reports`
-  - accepted row keys: `id | sid | reportId | report_id`, `userId | user_id | reportedUserId | reported_user_id`, `name | reportFrom | report_from | reportedByName | reported_by_name`, `email | reportedByEmail | reported_by_email`, `reason | reportReason | report_reason`, `reportedAt | date | created_at | createdAt`
-- `POST /reports/actions/warn`
-  - request: `{ "userId"?: string|number, "reportId": string|number, "reason"?: string }`
-  - response: `{ "success": boolean, "message"?: string }`
-- `POST /reports/actions/disable`
-  - request: `{ "userId": string|number, "reportId": string|number, "reason"?: string }`
-  - response: `{ "success": boolean, "message"?: string }`
-- `POST /reports/actions/unblock`
-  - request: `{ "userId": string|number, "reportId": string|number }`
-  - response: `{ "success": boolean, "message"?: string }`
+- `GET /api/v1/reports`
+- `POST /api/v1/reports/actions/warn`
+- `POST /api/v1/reports/actions/disable`
+- `POST /api/v1/reports/actions/unblock`
 
-## Profile
-- `GET /profile`
-  - accepted keys: `username | userName | user_name`, `email`, `contactNo | contact_no | phone`, `name | fullName | full_name`
+## Profile + CMS
+- `GET /api/v1/admin/profile`
+- `PATCH /api/v1/admin/profile`
+- `GET /api/v1/cms`
+- `PATCH /api/v1/cms/privacy-policy` with `{ "text": string }`
+- `PATCH /api/v1/cms/about-us` with `{ "text": string }`
+- `PATCH /api/v1/cms/terms-conditions` with `{ "text": string }`

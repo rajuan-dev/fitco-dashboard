@@ -20,10 +20,11 @@ export default function EarningsPage({ loading, earningsData, transactions, page
         variant="earnings"
         headers={['S.ID', 'Full Name', 'Trx ID', 'Plans', 'Price', 'Date', 'Action']}
         avatarColumnIndex={1}
+        serialStart={(page - 1) * pageSize + 1}
         rows={transactions.map((t) => [
           t.id,
           t.name,
-          t.trxId,
+          t.displayTransactionId || t.trxId,
           <span key={`plan-${t.id}`} className="inline-flex rounded-full bg-[#e9f6eb] px-2.5 py-1 text-xs font-semibold text-[#2f8f37]">
             {t.plan}
           </span>,

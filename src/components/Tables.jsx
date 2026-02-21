@@ -17,8 +17,8 @@ function getInitials(name = '') {
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('')
 }
 
-export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title = '', hideFooter = false }) {
-  const headers = ['S.ID', 'Full Name', 'Email', 'Phone No', 'Joined Date', 'Action']
+export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title = '', hideFooter = false, serialStart = 1 }) {
+  const headers = ['S.ID', 'Full Name', 'Email', 'Joined Date', 'Action']
 
   return (
     <section>
@@ -35,7 +35,7 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
           <tbody>
             {rows.map((row, i) => (
               <tr key={`${row.id}-${i}`} className="border-t border-[#edf2ee] transition hover:bg-[#f8fcf8]">
-                <td className="px-3 py-3 font-medium text-[#5f7380]">{row.id}</td>
+                <td className="px-3 py-3 font-medium text-[#5f7380]">{serialStart + i}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-3">
                     <div className="avatar-sm">{getInitials(row.name)}</div>
@@ -43,7 +43,6 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
                   </div>
                 </td>
                 <td className="px-3 py-3 text-[#4f6471]">{row.email}</td>
-                <td className="px-3 py-3 text-[#4f6471]">{row.phone}</td>
                 <td className="px-3 py-3 text-[#4f6471]">{row.joinedDate || row.date}</td>
                 <td className="px-3 py-3">
                   <RowActions blocked={blocked} onView={() => onView?.(row)} onToggleBlock={() => onToggleBlock?.(row)} />
@@ -62,11 +61,10 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
                 <div className="avatar-sm">{getInitials(row.name)}</div>
                 <strong className="text-sm text-[#2f3f4f]">{row.name}</strong>
               </div>
-              <span className="text-xs text-[#6f818d]">ID {row.id}</span>
+              <span className="text-xs text-[#6f818d]">ID {serialStart + i}</span>
             </div>
             <div className="space-y-1 text-xs text-[#5f717d]">
               <p>{row.email}</p>
-              <p>{row.phone}</p>
               <p>{row.joinedDate || row.date}</p>
             </div>
             <div className="mt-3 flex gap-2">
@@ -122,8 +120,9 @@ const tableVariants = {
   },
 }
 
-export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 'default' }) {
+export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 'default', serialStart = 1 }) {
   const styles = tableVariants[variant] || tableVariants.default
+  const hasSerialColumn = headers[0] === 'S.ID'
 
   return (
     <>
@@ -141,13 +140,13 @@ export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 
               <tr key={`r-${idx}`} className={styles.row}>
                 {row.map((cell, i) => (
                   <td key={`c-${idx}-${i}`} className="px-3 py-3 text-[#3f5663]">
-                    {avatarColumnIndex === i && typeof cell === 'string' ? (
+                    {avatarColumnIndex === i && typeof (i === 0 && hasSerialColumn ? serialStart + idx : cell) === 'string' ? (
                       <div className="flex items-center gap-3">
-                        <div className="avatar-sm">{getInitials(cell)}</div>
-                        <span className="font-medium text-[#2d3f50]">{cell}</span>
+                        <div className="avatar-sm">{getInitials(i === 0 && hasSerialColumn ? serialStart + idx : cell)}</div>
+                        <span className="font-medium text-[#2d3f50]">{i === 0 && hasSerialColumn ? serialStart + idx : cell}</span>
                       </div>
                     ) : (
-                      cell
+                      i === 0 && hasSerialColumn ? serialStart + idx : cell
                     )}
                   </td>
                 ))}
@@ -164,13 +163,13 @@ export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 
               <div key={`mobile-cell-${idx}-${i}`} className="flex justify-between gap-3 border-b border-[#edf2ee] py-2 text-xs last:border-b-0">
                 <span className={styles.mobileHeader}>{header}</span>
                 <span className="text-right text-[#2f3f4f]">
-                  {avatarColumnIndex === i && typeof row[i] === 'string' ? (
+                  {avatarColumnIndex === i && typeof (i === 0 && hasSerialColumn ? serialStart + idx : row[i]) === 'string' ? (
                     <span className="inline-flex items-center gap-2">
-                      <span className="avatar-sm">{getInitials(row[i])}</span>
-                      <span>{row[i]}</span>
+                      <span className="avatar-sm">{getInitials(i === 0 && hasSerialColumn ? serialStart + idx : row[i])}</span>
+                      <span>{i === 0 && hasSerialColumn ? serialStart + idx : row[i]}</span>
                     </span>
                   ) : (
-                    row[i]
+                    i === 0 && hasSerialColumn ? serialStart + idx : row[i]
                   )}
                 </span>
               </div>

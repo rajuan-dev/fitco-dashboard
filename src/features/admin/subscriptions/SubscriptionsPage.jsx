@@ -21,6 +21,7 @@ export default function SubscriptionsPage({ loading, subscriptions, page, pageSi
         variant="subscriptions"
         headers={['S.ID', 'User', 'Email', 'Status', 'Plans', 'Expiration Date']}
         avatarColumnIndex={1}
+        serialStart={(page - 1) * pageSize + 1}
         rows={subscriptions.map((s) => [
           s.id,
           s.name,

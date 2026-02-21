@@ -123,9 +123,38 @@ function Icon({ type, className = '' }) {
   )
 }
 
-export function AdminLayout({ path, children }) {
+const getDisplayName = ({ name, firstName, lastName, username }) => {
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim()
+  if (fullName) return fullName
+  if (name) return String(name).trim()
+  if (username && username !== '-') return String(username).trim()
+  return 'Admin'
+}
+
+const getInitials = ({ name, firstName, lastName, username }) => {
+  const parts = [firstName, lastName].filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
+  }
+
+  const text = getDisplayName({ name, firstName, lastName, username })
+  const words = String(text)
+    .split(' ')
+    .map((word) => word.trim())
+    .filter(Boolean)
+  if (words.length >= 2) {
+    return `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+  }
+  return String(words[0] || 'A')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+export function AdminLayout({ path, children, adminProfile = {} }) {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const title = titles[path] || 'Dashboard'
+  const displayName = getDisplayName(adminProfile)
+  const initials = getInitials(adminProfile)
   const activeNav = path.startsWith('/admin/users')
     ? routes.users
     : path.startsWith('/admin/earnings')
@@ -192,7 +221,7 @@ export function AdminLayout({ path, children }) {
                 <Icon type="menu" className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="text-base font-semibold tracking-tight text-[#223343] md:text-xl">Welcome, James</h3>
+                <h3 className="text-base font-semibold tracking-tight text-[#223343] md:text-xl">Welcome, {displayName}</h3>
                 <p className="text-xs text-[#748491] md:text-sm">Have a nice day!</p>
               </div>
             </div>
@@ -200,7 +229,7 @@ export function AdminLayout({ path, children }) {
               onClick={() => navigate(routes.profile)}
               className="grid h-10 w-10 place-content-center rounded-full border border-[#93cc99] bg-[#f8fff8] text-sm font-semibold text-[var(--fitco-green)] md:h-12 md:w-12"
             >
-              JA
+              {initials}
             </button>
           </div>
 

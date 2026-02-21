@@ -15,6 +15,7 @@ export default function ReportsPage({ loading, reports, page, pageSize, totalIte
         variant="reports"
         headers={['S.ID', 'Report From', 'Email', 'Report Reason', 'Date & Time', 'Action']}
         avatarColumnIndex={1}
+        serialStart={(page - 1) * pageSize + 1}
         rows={reports.map((r) => [
           r.id,
           r.name,
@@ -42,9 +43,9 @@ export default function ReportsPage({ loading, reports, page, pageSize, totalIte
             </button>
             <button
               className="rounded-md border border-[#cde6cf] bg-[#f2fbf3] px-2.5 py-1 text-xs font-semibold text-[#2f9b38] transition hover:bg-[#e4f5e6]"
-              onClick={() => onReportAction('unblock', r)}
+              onClick={() => onReportAction('restore', r)}
             >
-              Unblock
+              Restore Access
             </button>
           </div>,
         ])}

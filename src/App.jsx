@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import JoditEditor from 'jodit-react'
 import 'jodit/es2021/jodit.min.css'
 import { AdminLayout } from './components/AdminLayout'
-import { Field, InfoRow, Logo, ModalCard, OtpBoxes, PageLoader } from './components/UI'
+import { Field, InfoRow, Logo, ModalCard, PageLoader } from './components/UI'
 import { defaultRoute, routes } from './config/routes'
 import DashboardPage from './features/admin/dashboard/DashboardPage'
 import EarningsPage from './features/admin/earnings/EarningsPage'
@@ -19,6 +19,44 @@ const isAuthRoute = (path) => path.startsWith('/auth')
 const isAdminRoute = (path) => path.startsWith('/admin')
 const PAGE_SIZE = 8
 const getErrorMessage = (error, fallback) => error?.payload?.message || error?.message || fallback
+const getAdminDisplayName = (profile = {}) => {
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim()
+  if (fullName) return fullName
+  if (profile.name) return String(profile.name).trim()
+  if (profile.username && profile.username !== '-') return String(profile.username).trim()
+  return 'Admin'
+}
+const getAdminInitials = (profile = {}) => {
+  const firstName = String(profile.firstName || '').trim()
+  const lastName = String(profile.lastName || '').trim()
+  if (firstName && lastName) {
+    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
+  }
+
+  const text = getAdminDisplayName(profile)
+  const words = String(text)
+    .split(' ')
+    .map((word) => word.trim())
+    .filter(Boolean)
+  if (words.length >= 2) {
+    return `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+  }
+  return String(words[0] || 'A')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+const toDateTimeLocalValue = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
 
 function App() {
   const { path } = useRouter()
@@ -62,9 +100,11 @@ function App() {
 function AuthRoutes({ onAuthSuccess }) {
   const { path } = useRouter()
 
-  const [email, setEmail] = useState('mostain@gamil.com')
-  const [password, setPassword] = useState('12345678')
-  const [confirmPassword, setConfirmPassword] = useState('12345678')
+  const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
+  const [password, setPassword] = useState('')
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -91,7 +131,8 @@ function AuthRoutes({ onAuthSuccess }) {
       const response = await api.login({ email, password })
       if (response?.token) {
         setToken(response.token)
-        navigate(routes.otp)
+        onAuthSuccess()
+        navigate(routes.dashboard)
       } else {
         setError('Unable to sign in. Please try again.')
       }
@@ -100,17 +141,28 @@ function AuthRoutes({ onAuthSuccess }) {
     } finally {
       setSubmitting(false)
     }
-  }, [email, password])
+  }, [email, onAuthSuccess, password])
+
+  const handleLoginSubmit = useCallback(
+    (event) => {
+      event.preventDefault()
+      handleLogin()
+    },
+    [handleLogin],
+  )
 
   const handleOtpVerify = useCallback(async () => {
+    if (!otp || otp.length !== 6) {
+      setError('Please enter a valid 6-digit OTP.')
+      return
+    }
+
     setSubmitting(true)
     setError('')
     try {
-      const response = await api.verifyOtp({ email, otp: '80--' })
-      if (response?.token) {
-        setToken(response.token)
-        onAuthSuccess()
-        navigate(routes.dashboard)
+      const response = await api.verifyOtp({ email, otp })
+      if (response?.success || response?.message) {
+        navigate(routes.reset)
       } else {
         setError('Invalid OTP. Please try again.')
       }
@@ -119,7 +171,7 @@ function AuthRoutes({ onAuthSuccess }) {
     } finally {
       setSubmitting(false)
     }
-  }, [email, onAuthSuccess])
+  }, [email, otp])
 
   const handleForgot = useCallback(async () => {
     if (!email) {
@@ -131,7 +183,7 @@ function AuthRoutes({ onAuthSuccess }) {
     setError('')
     try {
       await api.requestPasswordReset({ email })
-      navigate(routes.reset)
+      navigate(routes.otp)
     } catch (error) {
       setError(getErrorMessage(error, 'Failed to send reset code. Please try again.'))
     } finally {
@@ -140,8 +192,8 @@ function AuthRoutes({ onAuthSuccess }) {
   }, [email])
 
   const handleResetPassword = useCallback(async () => {
-    if (!password || !confirmPassword) {
-      setError('Password fields are required.')
+    if (!otp || !password || !confirmPassword) {
+      setError('OTP and password fields are required.')
       return
     }
 
@@ -153,15 +205,14 @@ function AuthRoutes({ onAuthSuccess }) {
     setSubmitting(true)
     setError('')
     try {
-      await api.resetPassword({ email, password, confirmPassword })
-      onAuthSuccess()
-      navigate(routes.dashboard)
+      await api.resetPassword({ email, otp, newPassword: password })
+      navigate(routes.login)
     } catch (error) {
       setError(getErrorMessage(error, 'Failed to reset password. Please try again.'))
     } finally {
       setSubmitting(false)
     }
-  }, [confirmPassword, email, onAuthSuccess, password])
+  }, [confirmPassword, email, otp, password])
 
   return (
     <section className="mx-auto flex min-h-[92vh] max-w-3xl items-center justify-center">
@@ -170,31 +221,50 @@ function AuthRoutes({ onAuthSuccess }) {
         <h1 className="mb-6 text-3xl font-bold leading-tight tracking-tight text-[#1f2b3a] md:text-[42px]">{title}</h1>
 
         {path === routes.login ? (
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={handleLoginSubmit}>
             <Field label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Field label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[#34475a] md:text-base">Password</span>
+              <div className="relative">
+                <input
+                  className="field pr-12"
+                  type={showLoginPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8da0ad]"
+                  onClick={() => setShowLoginPassword((prev) => !prev)}
+                >
+                  {showLoginPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </label>
             <div className="flex items-center justify-between text-sm">
               <label className="inline-flex items-center gap-2 text-[#495a61]">
                 <input type="checkbox" defaultChecked className="h-4 w-4 accent-[var(--fitco-green)]" />
                 Remember password
               </label>
-              <button className="text-[#77a67a] underline" onClick={() => navigate(routes.forgot)}>
+              <button type="button" className="text-[#77a67a] underline" onClick={() => navigate(routes.forgot)}>
                 Forgot password?
               </button>
             </div>
-            <button className="btn-primary mt-1" onClick={handleLogin} disabled={submitting}>
+            <button type="submit" className="btn-primary mt-1" disabled={submitting}>
               {submitting ? 'Signing In...' : 'Sign In'}
             </button>
-          </div>
+          </form>
         ) : null}
 
         {path === routes.otp ? (
           <div className="space-y-5">
             <p className="text-[#495a61]">Please check your email. We have sent a code to {email}</p>
-            <OtpBoxes />
+            <Field label="OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
             <div className="flex justify-between text-sm text-[#637681]">
               <span>Didn't receive code?</span>
-              <button className="text-[#77a67a] underline">Resend</button>
+              <button className="text-[#77a67a] underline" onClick={handleForgot} disabled={submitting}>
+                Resend
+              </button>
             </div>
             <button className="btn-primary" onClick={handleOtpVerify} disabled={submitting}>
               {submitting ? 'Verifying...' : 'Verify'}
@@ -214,11 +284,11 @@ function AuthRoutes({ onAuthSuccess }) {
 
         {path === routes.reset ? (
           <div className="space-y-4">
-            <Field label="Current Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Field label="OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
             <Field label="New Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <Field label="Confirm New Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
             <button className="btn-primary" onClick={handleResetPassword} disabled={submitting}>
-              {submitting ? 'Updating...' : 'Sign Up'}
+              {submitting ? 'Updating...' : 'Reset Password'}
             </button>
           </div>
         ) : null}
@@ -238,6 +308,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const loadSubscriptions = useCallback(() => api.getSubscriptions(), [])
   const loadReports = useCallback(() => api.getReports(), [])
   const loadProfile = useCallback(() => api.getProfile(), [])
+  const loadSubscriptionPricing = useCallback(() => api.getSubscriptionPricing(), [])
   const loadPrivacyPolicy = useCallback(() => api.getPrivacyPolicy(), [])
   const loadAboutUs = useCallback(() => api.getAboutUs(), [])
   const loadTerms = useCallback(() => api.getTermsAndConditions(), [])
@@ -248,6 +319,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const { data: earningsData, loading: earningsLoading } = useAsyncData(loadEarnings, {})
   const { data: transactions, loading: transactionsLoading } = useAsyncData(loadTransactions, [])
   const { data: subscriptions, loading: subscriptionsLoading } = useAsyncData(loadSubscriptions, [])
+  const { data: subscriptionPricing } = useAsyncData(loadSubscriptionPricing, null)
   const { data: reports, loading: reportsLoading } = useAsyncData(loadReports, [])
   const { data: profile, loading: profileLoading } = useAsyncData(loadProfile, {})
   const { data: privacyPayload, loading: privacyLoading } = useAsyncData(loadPrivacyPolicy, { content: '' })
@@ -258,12 +330,14 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [aboutText, setAboutText] = useState('')
   const [termsText, setTermsText] = useState('')
   const [savingCms, setSavingCms] = useState(false)
-  const [profileDraft, setProfileDraft] = useState({ username: '', email: '', contactNo: '', name: '' })
+  const [profileDraft, setProfileDraft] = useState({ username: '', firstName: '', lastName: '', email: '', contactNo: '', name: '' })
+  const [savingProfile, setSavingProfile] = useState(false)
   const [subscriptionConfig, setSubscriptionConfig] = useState({
     monthlyFee: '9.99',
     yearlyFee: '99.99',
     couponCode: 'PREMIUM50',
     discountPercent: 10,
+    couponExpiry: '',
   })
   const [usersPage, setUsersPage] = useState(1)
   const [blockedUsersPage, setBlockedUsersPage] = useState(1)
@@ -276,6 +350,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [selectedUser, setSelectedUser] = useState(null)
   const [selectedUserBlocked, setSelectedUserBlocked] = useState(false)
   const [selectedUserSource, setSelectedUserSource] = useState(routes.users)
+  const [selectedTransaction, setSelectedTransaction] = useState(null)
 
   useEffect(() => {
     if (privacyPayload?.content !== undefined) setPrivacyText(privacyPayload.content)
@@ -294,6 +369,16 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       setProfileDraft(profile)
     }
   }, [profile])
+
+  useEffect(() => {
+    if (subscriptionPricing?.monthlyFee && subscriptionPricing?.yearlyFee) {
+      setSubscriptionConfig((prev) => ({
+        ...prev,
+        monthlyFee: String(subscriptionPricing.monthlyFee).replace(/^[A-Z]{3}\s/, ''),
+        yearlyFee: String(subscriptionPricing.yearlyFee).replace(/^[A-Z]{3}\s/, ''),
+      }))
+    }
+  }, [subscriptionPricing])
 
   useEffect(() => {
     if (!usersLoading) {
@@ -379,7 +464,13 @@ function AdminRoutes({ path, onLogout, pushToast }) {
     navigate(routes.userDetails)
   }, [])
 
-  const handleConfirmUserAction = useCallback(() => {
+  const openTransactionDetails = useCallback((transaction) => {
+    if (!transaction) return
+    setSelectedTransaction(transaction)
+    navigate(routes.transaction)
+  }, [])
+
+  const handleConfirmUserAction = useCallback(async () => {
     if (!pendingUserAction?.user || !pendingUserAction?.action) {
       navigate(routes.users)
       return
@@ -387,18 +478,47 @@ function AdminRoutes({ path, onLogout, pushToast }) {
 
     const { user, action, source } = pendingUserAction
     if (action === 'block') {
-      setActiveUsers((prev) => prev.filter((item) => item !== user))
-      setBlockedUsersState((prev) => [user, ...prev.filter((item) => item !== user)])
-      pushToast(`${user.name} blocked successfully.`)
-      navigate(source === routes.dashboard ? routes.dashboard : routes.blockedUsers)
+      try {
+        await api.blockUser({ userId: user.id })
+        setActiveUsers((prev) => prev.filter((item) => item !== user))
+        setBlockedUsersState((prev) => [user, ...prev.filter((item) => item !== user)])
+        pushToast(`${user.name} blocked successfully.`)
+        navigate(source === routes.dashboard ? routes.dashboard : routes.blockedUsers)
+      } catch (error) {
+        pushToast(getErrorMessage(error, `Failed to block ${user.name}.`), 'error')
+      }
     } else {
-      setBlockedUsersState((prev) => prev.filter((item) => item !== user))
-      setActiveUsers((prev) => [user, ...prev.filter((item) => item !== user)])
-      pushToast(`${user.name} unblocked successfully.`)
-      navigate(source === routes.dashboard ? routes.dashboard : routes.users)
+      try {
+        await api.unblockAccount({ userId: user.id })
+        setBlockedUsersState((prev) => prev.filter((item) => item !== user))
+        setActiveUsers((prev) => [user, ...prev.filter((item) => item !== user)])
+        pushToast(`${user.name} unblocked successfully.`)
+        navigate(source === routes.dashboard ? routes.dashboard : routes.users)
+      } catch (error) {
+        pushToast(getErrorMessage(error, `Failed to unblock ${user.name}.`), 'error')
+      }
     }
     setPendingUserAction(null)
   }, [pendingUserAction, pushToast])
+
+  const saveProfile = useCallback(async () => {
+    setSavingProfile(true)
+    try {
+      const updatedName = (profileDraft.username || profileDraft.name || '').trim()
+      await api.updateProfile({
+        name: updatedName,
+        username: updatedName,
+        email: profileDraft.email,
+        contactNo: profileDraft.contactNo,
+      })
+      setProfileDraft((prev) => ({ ...prev, name: updatedName, username: updatedName || prev.username }))
+      pushToast('Profile updated successfully.')
+    } catch (error) {
+      pushToast(getErrorMessage(error, 'Failed to update profile.'), 'error')
+    } finally {
+      setSavingProfile(false)
+    }
+  }, [profileDraft.contactNo, profileDraft.email, profileDraft.name, profileDraft.username, pushToast])
 
   const handleCancelUserAction = useCallback(() => {
     const fallback = pendingUserAction?.source || (pendingUserAction?.action === 'unblock' ? routes.blockedUsers : routes.users)
@@ -453,12 +573,12 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         return
       }
       try {
-        await api.unblockUser({ userId, reportId: reportUser.id })
+        await api.restoreUserAccess({ userId, reportId: reportUser.id })
         setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
         setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
-        pushToast(`${reportUser.name} account unblocked.`)
+        pushToast(`${reportUser.name} account restored.`)
       } catch (error) {
-        pushToast(getErrorMessage(error, `Failed to unblock ${reportUser.name}.`), 'error')
+        pushToast(getErrorMessage(error, `Failed to restore ${reportUser.name}.`), 'error')
       }
     },
     [findUserByReport, pushToast],
@@ -540,7 +660,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             pageSize={PAGE_SIZE}
             totalItems={transactions.length}
             onPageChange={setEarningsPage}
-            onViewTransaction={() => navigate(routes.transaction)}
+            onViewTransaction={openTransactionDetails}
           />
         )}
 
@@ -576,8 +696,8 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         ) : (
           <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--fitco-border)] bg-white p-4 md:p-6">
             <div className="grid place-items-center">
-              <div className="avatar">MA</div>
-              <h3 className="mt-3 text-3xl font-bold text-[#2a3946] md:text-[42px]">{profileDraft.name || profile.name}</h3>
+              <div className="avatar">{getAdminInitials(profileDraft)}</div>
+              <h3 className="mt-3 text-3xl font-bold text-[#2a3946] md:text-[42px]">{getAdminDisplayName(profileDraft)}</h3>
               <div className="mt-2 flex gap-6 text-sm md:text-base">
                 <button className="font-semibold text-[var(--fitco-green)] underline">Edit Profile</button>
                 <button className="text-[#7a8c90]" onClick={() => navigate(routes.changePassword)}>
@@ -586,10 +706,19 @@ function AdminRoutes({ path, onLogout, pushToast }) {
               </div>
             </div>
             <div className="mt-6 space-y-4">
-              <Field label="User Name" value={profileDraft.username || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, username: event.target.value }))} />
+              <Field
+                label="User Name"
+                value={profileDraft.username || ''}
+                onChange={(event) => {
+                  const nextName = event.target.value
+                  setProfileDraft((prev) => ({ ...prev, username: nextName, name: nextName }))
+                }}
+              />
               <Field label="Email" value={profileDraft.email || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, email: event.target.value }))} />
               <Field label="Contact No" value={profileDraft.contactNo || ''} onChange={(event) => setProfileDraft((prev) => ({ ...prev, contactNo: event.target.value }))} />
-              <button className="btn-primary" onClick={() => pushToast('Profile updated successfully.')}>Update Profile</button>
+              <button className="btn-primary" onClick={saveProfile} disabled={savingProfile}>
+                {savingProfile ? 'Updating...' : 'Update Profile'}
+              </button>
             </div>
           </div>
         ))}
@@ -648,7 +777,9 @@ function AdminRoutes({ path, onLogout, pushToast }) {
 
   return (
     <>
-      <AdminLayout path={basePath}>{page}</AdminLayout>
+      <AdminLayout path={basePath} adminProfile={profileDraft}>
+        {page}
+      </AdminLayout>
       {path === routes.userDetails ? (
         <UserDetailsModal
           user={selectedUser}
@@ -664,8 +795,15 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           onCancel={handleCancelUserAction}
         />
       ) : null}
-      {path === routes.transaction ? <TransactionModal onClose={() => navigate(routes.earnings)} /> : null}
-      {path === routes.manageFees ? <ManageFeesModal config={subscriptionConfig} onConfigChange={updateSubscriptionConfig} pushToast={pushToast} onClose={() => navigate(routes.subscriptions)} /> : null}
+      {path === routes.transaction ? <TransactionModal transaction={selectedTransaction} onClose={() => navigate(routes.earnings)} /> : null}
+      {path === routes.manageFees ? (
+        <ManageFeesModal
+          config={subscriptionConfig}
+          onConfigChange={updateSubscriptionConfig}
+          pushToast={pushToast}
+          onClose={() => navigate(routes.subscriptions)}
+        />
+      ) : null}
       {path === routes.logoutConfirm ? <ConfirmModal title="Confirm logging out!" onConfirm={handleLogout} onCancel={() => navigate(routes.dashboard)} /> : null}
     </>
   )
@@ -711,7 +849,7 @@ function ChangePasswordPanel({ pushToast }) {
 
     setSaving(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      await api.changePassword({ currentPassword, newPassword })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -881,16 +1019,31 @@ function UserDetailsModal({ user, blocked, onClose, onAction }) {
   )
 }
 
-function TransactionModal({ onClose }) {
+function TransactionModal({ transaction, onClose }) {
+  const detail = transaction || {
+    transactionId: '#-',
+    displayTransactionId: 'TXN-NA',
+    trxId: '#-',
+    plan: '-',
+    date: '-',
+    name: 'Unknown User',
+    accountNo: '-',
+    email: '-',
+    price: '$0.00',
+    status: '-',
+    reference: '#-',
+  }
+
   return (
     <ModalCard title="Transaction Details" onClose={onClose}>
-      <InfoRow k="Transaction ID" v="#12345678" />
-      <InfoRow k="Plans" v="Monthly Subscription" />
-      <InfoRow k="Date" v="02-24-2024" />
-      <InfoRow k="Name" v="John Doe." />
-      <InfoRow k="A/C number" v="**** **** **** *545" />
-      <InfoRow k="Email" v="john@email.com" />
-      <InfoRow k="Transaction amount" v="$9.99" />
+      <InfoRow k="Transaction ID" v={detail.displayTransactionId || detail.transactionId || detail.trxId || '#-'} />
+      <InfoRow k="Plans" v={detail.plan || '-'} />
+      <InfoRow k="Date" v={detail.date || '-'} />
+      <InfoRow k="Name" v={detail.name || '-'} />
+      <InfoRow k="A/C number" v={detail.accountNo || '-'} />
+      <InfoRow k="Email" v={detail.email || '-'} />
+      <InfoRow k="Status" v={detail.status || '-'} />
+      <InfoRow k="Transaction amount" v={detail.price || '$0.00'} />
       <div className="mt-7 grid gap-3 md:grid-cols-2">
         <button className="btn-outline" onClick={() => navigate(routes.earnings)}>
           Cancel
@@ -908,13 +1061,49 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
   const [yearlyFee, setYearlyFee] = useState(config.yearlyFee)
   const [couponCode, setCouponCode] = useState(config.couponCode)
   const [discountPercent, setDiscountPercent] = useState(config.discountPercent)
+  const [couponExpiry, setCouponExpiry] = useState(config.couponExpiry || '')
+  const [couponExpiryDate, setCouponExpiryDate] = useState(config.couponExpiry ? config.couponExpiry.split('T')[0] : '')
+  const [couponExpiryTime, setCouponExpiryTime] = useState(config.couponExpiry ? config.couponExpiry.split('T')[1] : '')
+  const [saving, setSaving] = useState(false)
+  const [addingCoupon, setAddingCoupon] = useState(false)
+  const [removingCoupon, setRemovingCoupon] = useState(false)
 
   useEffect(() => {
     setMonthlyFee(config.monthlyFee)
     setYearlyFee(config.yearlyFee)
     setCouponCode(config.couponCode)
     setDiscountPercent(config.discountPercent)
+    setCouponExpiry(config.couponExpiry || '')
+    setCouponExpiryDate(config.couponExpiry ? config.couponExpiry.split('T')[0] : '')
+    setCouponExpiryTime(config.couponExpiry ? config.couponExpiry.split('T')[1] : '')
   }, [config])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCoupon = async () => {
+      try {
+        const couponsPayload = await api.listCoupons()
+        const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+        const latest = coupons[0]
+        if (!latest || !isMounted) return
+
+        setCouponCode(String(latest.code || ''))
+        setDiscountPercent(Number(latest.discountPercentage || 0))
+        const localExpiry = toDateTimeLocalValue(latest.expiryDate)
+        setCouponExpiry(localExpiry)
+        setCouponExpiryDate(localExpiry ? localExpiry.split('T')[0] : '')
+        setCouponExpiryTime(localExpiry ? localExpiry.split('T')[1] : '')
+      } catch {
+        // Keep manual fields when coupons cannot be loaded.
+      }
+    }
+
+    loadCoupon()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const decreaseDiscount = () => setDiscountPercent((prev) => Math.max(0, prev - 1))
   const increaseDiscount = () => setDiscountPercent((prev) => Math.min(100, prev + 1))
@@ -928,7 +1117,7 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
     setDiscountPercent(Math.min(100, Math.max(0, parsed)))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const validMonthly = Number(monthlyFee)
     const validYearly = Number(yearlyFee)
 
@@ -937,14 +1126,137 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
       return
     }
 
-    onConfigChange({
-      monthlyFee: validMonthly.toFixed(2),
-      yearlyFee: validYearly.toFixed(2),
-      couponCode: couponCode.trim() || 'PREMIUM50',
-      discountPercent,
-    })
-    pushToast('Subscription settings updated successfully.')
-    onClose?.()
+    setSaving(true)
+    try {
+      await api.updateSubscriptionPricing({
+        monthlyPriceCents: Math.round(validMonthly * 100),
+        yearlyPriceCents: Math.round(validYearly * 100),
+        currency: 'usd',
+      })
+
+      onConfigChange({
+        monthlyFee: validMonthly.toFixed(2),
+        yearlyFee: validYearly.toFixed(2),
+        couponCode: couponCode.trim() || 'PREMIUM50',
+        discountPercent,
+      })
+      pushToast('Subscription settings updated successfully.')
+      onClose?.()
+    } catch (error) {
+      pushToast(getErrorMessage(error, 'Failed to update subscription settings.'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddCoupon = async () => {
+    const code = couponCode.trim().toUpperCase()
+    const discount = Number(discountPercent)
+    const expiryRaw = couponExpiry.trim()
+
+    if (!code) {
+      pushToast('Coupon code is required.', 'error')
+      return
+    }
+    if (!Number.isInteger(discount) || discount <= 0 || discount > 100) {
+      pushToast('Discount must be an integer between 1 and 100.', 'error')
+      return
+    }
+    if (!expiryRaw) {
+      pushToast('Expiry date and time is required.', 'error')
+      return
+    }
+    const expiry = new Date(expiryRaw)
+    if (Number.isNaN(expiry.getTime()) || expiry <= new Date()) {
+      pushToast('Please select a future expiry date and time.', 'error')
+      return
+    }
+
+    setAddingCoupon(true)
+    try {
+      const couponsPayload = await api.listCoupons()
+      const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+      const existing = coupons.find((coupon) => String(coupon?.code || '').toUpperCase() === code)
+
+      if (existing?._id || existing?.id) {
+        await api.updateCoupon({
+          couponId: existing._id || existing.id,
+          discountPercentage: discount,
+          expiryDate: expiry.toISOString(),
+        })
+      } else {
+        await api.createCoupon({
+          code,
+          discountPercentage: discount,
+          expiryDate: expiry.toISOString(),
+        })
+      }
+      onConfigChange({
+        couponCode: code,
+        discountPercent: discount,
+        couponExpiry: toDateTimeLocalValue(expiry.toISOString()),
+      })
+      pushToast(existing ? 'Coupon updated successfully.' : 'Coupon added successfully.')
+    } catch (error) {
+      pushToast(getErrorMessage(error, 'Failed to add coupon.'), 'error')
+    } finally {
+      setAddingCoupon(false)
+    }
+  }
+
+  const updateExpiryFromParts = (nextDate, nextTime) => {
+    setCouponExpiryDate(nextDate)
+    setCouponExpiryTime(nextTime)
+    if (!nextDate) {
+      setCouponExpiry('')
+      return
+    }
+    setCouponExpiry(`${nextDate}T${nextTime || '23:59'}`)
+  }
+
+  const setExpiryPreset = (daysToAdd) => {
+    const preset = new Date()
+    preset.setDate(preset.getDate() + daysToAdd)
+    preset.setHours(23, 59, 0, 0)
+    const local = toDateTimeLocalValue(preset.toISOString())
+    setCouponExpiry(local)
+    setCouponExpiryDate(local.split('T')[0] || '')
+    setCouponExpiryTime(local.split('T')[1] || '23:59')
+  }
+
+  const handleRemoveCoupon = async () => {
+    const code = couponCode.trim().toUpperCase()
+    if (!code) {
+      pushToast('Enter coupon code to remove.', 'error')
+      return
+    }
+
+    setRemovingCoupon(true)
+    try {
+      const couponsPayload = await api.listCoupons()
+      const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+      const existing = coupons.find((coupon) => String(coupon?.code || '').toUpperCase() === code)
+
+      if (!(existing?._id || existing?.id)) {
+        pushToast('Coupon not found.', 'error')
+        return
+      }
+
+      await api.deleteCoupon({ couponId: existing._id || existing.id })
+      onConfigChange({
+        couponCode: '',
+        couponExpiry: '',
+      })
+      setCouponCode('')
+      setCouponExpiry('')
+      setCouponExpiryDate('')
+      setCouponExpiryTime('')
+      pushToast('Coupon removed successfully.')
+    } catch (error) {
+      pushToast(getErrorMessage(error, 'Failed to remove coupon.'), 'error')
+    } finally {
+      setRemovingCoupon(false)
+    }
   }
 
   return (
@@ -989,15 +1301,64 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
                 +
               </button>
             </div>
+            <p className="mb-2 mt-4 text-base md:text-lg">Expiry Date & Time</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7b8e99]">Date</p>
+                <input
+                  type="date"
+                  className="field"
+                  value={couponExpiryDate}
+                  onChange={(event) => updateExpiryFromParts(event.target.value, couponExpiryTime)}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7b8e99]">Time</p>
+                <input
+                  type="time"
+                  className="field"
+                  value={couponExpiryTime}
+                  onChange={(event) => updateExpiryFromParts(couponExpiryDate, event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(7)}>
+                +7 days
+              </button>
+              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(30)}>
+                +30 days
+              </button>
+              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(90)}>
+                +90 days
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[#7b8e99]">
+              {couponExpiry && !Number.isNaN(new Date(couponExpiry).getTime())
+                ? `Selected expiry: ${new Intl.DateTimeFormat('en-US', {
+                    month: 'short',
+                    day: '2-digit',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  }).format(new Date(couponExpiry))}`
+                : 'Coupon will expire automatically at the selected local date and time.'}
+            </p>
           </div>
-          <button className="btn-primary" onClick={() => pushToast('Coupon added to current fee settings.')}>
-            + Add New Coupon
-          </button>
+          <div className="grid gap-3 md:grid-cols-2">
+            <button className="btn-primary" onClick={handleAddCoupon} disabled={addingCoupon || removingCoupon}>
+              {addingCoupon ? 'Adding Coupon...' : '+ Add / Update Coupon'}
+            </button>
+            <button className="btn-outline" onClick={handleRemoveCoupon} disabled={addingCoupon || removingCoupon}>
+              {removingCoupon ? 'Removing...' : 'Remove Coupon'}
+            </button>
+          </div>
         </div>
       </div>
       <div className="mt-6">
-        <button className="btn-primary" onClick={handleSave}>
-          Update fee
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Updating...' : 'Update fee'}
         </button>
       </div>
     </ModalCard>

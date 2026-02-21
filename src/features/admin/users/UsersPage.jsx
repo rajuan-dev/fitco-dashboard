@@ -20,7 +20,14 @@ export default function UsersPage({
   return (
     <div className="space-y-4">
       <ListHeader buttonText={toggleButtonText} onButtonClick={onTogglePage} />
-      <UsersTable rows={rows} blocked={blocked} onView={onViewUser} onToggleBlock={onToggleBlock} hideFooter />
+      <UsersTable
+        rows={rows}
+        blocked={blocked}
+        onView={onViewUser}
+        onToggleBlock={onToggleBlock}
+        hideFooter
+        serialStart={(page - 1) * pageSize + 1}
+      />
       <PaginationBar currentPage={page} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />
     </div>
   )
