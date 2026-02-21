@@ -1,65 +1,70 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Poppins", ui-sans-serif, system-ui;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
 }
 
 :root {
   font-family: var(--font-sans);
-  --fitco-green: #45b14a;
-  --fitco-green-dark: #3ba140;
-  --fitco-surface: #eef3ef;
-  --fitco-border: #dfe8e1;
+  --fitco-green: #41b149;
+  --fitco-green-dark: #2f9b38;
+  --fitco-surface: #edf4ef;
+  --fitco-border: #dce8de;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   color: #2f3f4f;
+  background: var(--fitco-surface);
 }
 
 .app-bg {
   background:
-    radial-gradient(circle at 20% 10%, rgba(125, 181, 132, 0.16), transparent 32%),
-    radial-gradient(circle at 100% 100%, rgba(160, 200, 168, 0.14), transparent 26%),
-    #eef3ef;
+    radial-gradient(circle at 3% 8%, rgba(121, 173, 129, 0.18), transparent 22%),
+    radial-gradient(circle at 96% 90%, rgba(118, 184, 126, 0.14), transparent 24%),
+    var(--fitco-surface);
 }
 
 @layer components {
   .field {
-    @apply w-full rounded-lg border border-[#cfd8d1] bg-white px-4 py-2.5 text-sm text-[#2f3f4f] outline-none;
+    @apply h-11 w-full rounded-xl border border-[#ccdbcf] bg-white px-4 text-sm text-[#2f3f4f] outline-none transition placeholder:text-[#95a6b2] focus:border-[#81c987] focus:ring-2 focus:ring-[#d6edd8];
   }
 
   .btn-primary {
-    @apply w-full rounded-lg bg-[#45b14a] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#3ba140] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply w-full rounded-xl bg-[var(--fitco-green)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--fitco-green-dark)] disabled:cursor-not-allowed disabled:opacity-60 md:text-base;
   }
 
   .btn-outline {
-    @apply w-full rounded-lg border border-[#71be76] px-5 py-3 text-base font-semibold text-[#45b14a] transition hover:bg-[#edf7ed];
+    @apply w-full rounded-xl border border-[#7ac47f] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--fitco-green)] transition hover:bg-[#f2fbf3] md:text-base;
   }
 
   .otp-box {
-    @apply grid h-14 w-14 place-content-center rounded-lg border border-[#98cd9d] text-2xl font-semibold text-[#2f3f4f];
+    @apply grid h-12 w-12 place-content-center rounded-xl border border-[#98cd9d] bg-white text-xl font-semibold text-[#2f3f4f] md:h-14 md:w-14 md:text-2xl;
   }
 
   .nav-item {
-    @apply rounded-lg px-4 py-2 text-left text-base font-medium text-[#2f3f4f] transition hover:bg-[#edf7ed] hover:text-[#45b14a] md:text-[28px];
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[15px] font-medium text-[#314352] transition hover:bg-[#edf8ee] hover:text-[var(--fitco-green)] md:text-[18px];
   }
 
   .nav-item.active {
-    @apply bg-[#45b14a] text-white hover:bg-[#45b14a] hover:text-white;
+    @apply bg-[var(--fitco-green)] text-white hover:bg-[var(--fitco-green)] hover:text-white;
   }
 
   .avatar {
-    @apply grid h-20 w-20 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-xl font-bold text-[#1b4d24];
+    @apply grid h-16 w-16 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-base font-bold text-[#1b4d24] md:h-20 md:w-20 md:text-xl;
   }
 
   .avatar-sm {
-    @apply grid h-8 w-8 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-[10px] font-bold text-[#1b4d24];
+    @apply grid h-7 w-7 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-[9px] font-bold text-[#1b4d24];
   }
 
   .table-wrap {
-    @apply overflow-x-auto rounded-xl border border-[#dfe8e1];
+    @apply overflow-x-auto rounded-2xl border border-[var(--fitco-border)];
   }
 }
 
@@ -75,5 +80,5 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 280ms ease-out;
+  animation: fadeIn 260ms ease-out;
 }

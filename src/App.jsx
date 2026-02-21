@@ -137,9 +137,9 @@ function AuthRoutes({ onAuthSuccess }) {
 
   return (
     <section className="mx-auto flex min-h-[92vh] max-w-3xl items-center justify-center">
-      <div className="w-full max-w-2xl rounded-2xl bg-white px-6 py-10 shadow-[0_2px_20px_rgba(19,41,33,0.06)] md:px-14">
+      <div className="w-full max-w-2xl rounded-3xl border border-[var(--fitco-border)] bg-white px-5 py-8 shadow-xl md:px-14 md:py-10">
         <Logo className="mb-8 text-center" />
-        <h1 className="mb-6 text-3xl font-bold leading-tight text-[#1f2b3a] md:text-[42px]">{title}</h1>
+        <h1 className="mb-6 text-3xl font-bold leading-tight tracking-tight text-[#1f2b3a] md:text-[42px]">{title}</h1>
 
         {path === routes.login ? (
           <div className="space-y-4">
@@ -399,15 +399,18 @@ function DashboardPage({ data, users }) {
         <StatCard value={data.totalRevenue} label="Total Revenue" />
       </div>
 
-      <section className="rounded-xl border border-[#e0e8e2] p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-3xl font-semibold text-[#2f3f4f]">User Ratio</h3>
-          <button className="rounded-md bg-[#47b24c] px-4 py-2 text-sm font-semibold text-white">Year-2024</button>
+      <section className="rounded-2xl border border-[#e0e8e2] bg-[#fbfefb] p-4 md:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-2xl font-bold tracking-tight text-[#2f3f4f] md:text-4xl">User Ratio</h3>
+          <button className="rounded-xl bg-[var(--fitco-green)] px-4 py-2 text-xs font-semibold text-white md:text-sm">Year-2024</button>
         </div>
-        <div className="grid grid-cols-12 items-end gap-3 rounded-lg bg-[#f8fbf8] p-4">
+        <div className="grid grid-cols-12 items-end gap-2 rounded-xl border border-[#e7efe8] bg-white p-3 md:gap-3 md:p-4">
           {data.userRatio?.map((height, i) => (
             <div key={`dbar-${i}`} className="flex flex-col items-center gap-2">
-              <div className="w-4 rounded-full bg-[#45b14a]" style={{ height: `${Math.max(40, Math.round(height / 10))}px` }} />
+              <div
+                className="w-3 rounded-full bg-[var(--fitco-green)] shadow-[0_2px_8px_rgba(65,177,73,0.24)] md:w-4"
+                style={{ height: `${Math.max(36, Math.round(height / 10))}px` }}
+              />
               <span className="text-xs text-[#70808d]">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</span>
             </div>
           ))}
@@ -426,7 +429,7 @@ function ListHeader({ buttonText, onButtonClick }) {
         <input className="field pl-10" placeholder="Search User" />
         <span className="absolute left-3 top-2.5 text-lg text-[#6a7f72]">⌕</span>
       </div>
-      <button onClick={onButtonClick} className="rounded-md bg-[#47b24c] px-5 py-2.5 font-semibold text-white">
+      <button onClick={onButtonClick} className="rounded-xl bg-[var(--fitco-green)] px-5 py-2.5 text-sm font-semibold text-white md:text-base">
         {buttonText}
       </button>
     </div>
@@ -435,7 +438,7 @@ function ListHeader({ buttonText, onButtonClick }) {
 
 function SettingRow({ label, onClick }) {
   return (
-    <button onClick={onClick} className="flex w-full items-center justify-between py-4 text-left text-xl text-[#2e3d4d] transition hover:text-[#47b24c] md:text-3xl">
+    <button onClick={onClick} className="flex w-full items-center justify-between py-4 text-left text-lg text-[#2e3d4d] transition hover:text-[#47b24c] md:text-2xl">
       <span>{label}</span>
       <span>›</span>
     </button>
@@ -444,7 +447,7 @@ function SettingRow({ label, onClick }) {
 
 function ArticleEditor() {
   return (
-    <div className="space-y-5 text-base leading-relaxed text-[#424f5b]">
+    <div className="space-y-5 text-sm leading-relaxed text-[#424f5b] md:text-base">
       <p>Iacus nulla eu netus pretium. Pellentesque scelerisque tellus nisl eu nisl sed senectus nunc. Porta sollicitudin vel elit varius nulla sit diam sed.</p>
       <p>Diam pellentesque orci eget gravida cursus. Ut ut nulla sapien eget vitae at eget pretium. Tristique nibh ipsum iaculis quam. Vestibulum magna cursus facilisis adipiscing cras dui.</p>
       <p>Ut suscipit cursus id mauris. Accumsan egestas sit arcu sed. Feugiat tortor pharetra id ipsum elit diam viverra tortor. Mattis tincidunt eget ut nunc in.</p>
@@ -546,7 +549,7 @@ function ConfirmModal({ title, onConfirm, onCancel }) {
         <button className="btn-outline" onClick={onCancel}>
           Cancel
         </button>
-        <button className="rounded-lg bg-[#f44a4a] px-5 py-3 text-base font-semibold text-white" onClick={onConfirm}>
+        <button className="rounded-xl bg-[#f44a4a] px-5 py-2.5 text-sm font-semibold text-white md:text-base" onClick={onConfirm}>
           Yes, Confirm
         </button>
       </div>

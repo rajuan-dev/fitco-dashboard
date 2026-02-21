@@ -4,18 +4,18 @@ import { routes } from '../config/routes'
 import { navigate } from '../hooks/useRouter'
 
 const navItems = [
-  { path: routes.dashboard, label: 'Dashboard' },
-  { path: routes.users, label: 'Users' },
-  { path: routes.earnings, label: 'Earnings' },
-  { path: routes.subscriptions, label: 'Subscriptions' },
-  { path: routes.reports, label: 'Report' },
-  { path: routes.settings, label: 'Settings' },
+  { path: routes.dashboard, label: 'Dashboard', icon: 'dashboard' },
+  { path: routes.users, label: 'Users', icon: 'users' },
+  { path: routes.earnings, label: 'Earnings', icon: 'chart' },
+  { path: routes.subscriptions, label: 'Subscriptions', icon: 'crown' },
+  { path: routes.reports, label: 'Report', icon: 'alert' },
+  { path: routes.settings, label: 'Settings', icon: 'settings' },
 ]
 
 const titles = {
-  [routes.dashboard]: 'Dashboard',
+  [routes.dashboard]: 'Dashboard Overview',
   [routes.users]: 'User List',
-  [routes.blockedUsers]: 'Blocked List',
+  [routes.blockedUsers]: 'Blocked Users',
   [routes.earnings]: 'Earnings',
   [routes.subscriptions]: 'Subscriptions',
   [routes.reports]: 'Reports',
@@ -23,7 +23,7 @@ const titles = {
   [routes.settings]: 'Settings',
   [routes.changePassword]: 'Change Password',
   [routes.settingsForgot]: 'Forgot Password',
-  [routes.settingsOtp]: 'Settings',
+  [routes.settingsOtp]: 'OTP Verification',
   [routes.privacy]: 'Privacy Policy',
   [routes.about]: 'About Us',
   [routes.terms]: 'Terms & Conditions',
@@ -44,6 +44,84 @@ const backArrowPages = new Set([
   routes.about,
   routes.terms,
 ])
+
+function Icon({ type, className = '' }) {
+  const base = `h-5 w-5 ${className}`
+
+  if (type === 'dashboard') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    )
+  }
+
+  if (type === 'users') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="10" r="2" />
+        <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        <path d="M15 20c0-2.2 1.8-4 4-4" />
+      </svg>
+    )
+  }
+
+  if (type === 'chart') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 3v18h18" />
+        <rect x="7" y="12" width="2.5" height="6" />
+        <rect x="11.5" y="9" width="2.5" height="9" />
+        <rect x="16" y="6" width="2.5" height="12" />
+      </svg>
+    )
+  }
+
+  if (type === 'crown') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 8l4.5 4L12 6l4.5 6L21 8l-2 11H5L3 8z" />
+      </svg>
+    )
+  }
+
+  if (type === 'alert') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 3l10 18H2L12 3z" />
+        <path d="M12 9v5" />
+        <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    )
+  }
+
+  if (type === 'settings') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V23a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 4.8 15 1.7 1.7 0 0 0 3.2 14H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 10 3.2V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z" />
+      </svg>
+    )
+  }
+
+  if (type === 'menu') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 6h18M3 12h18M3 18h18" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  )
+}
 
 export function AdminLayout({ path, children }) {
   const [isNavOpen, setIsNavOpen] = useState(false)
@@ -67,56 +145,61 @@ export function AdminLayout({ path, children }) {
   }
 
   return (
-    <section className="mx-auto max-w-[1400px] animate-fade-in">
-      <div className="flex flex-col gap-4 lg:flex-row">
-        {isNavOpen ? <button className="fixed inset-0 z-30 bg-black/20 lg:hidden" onClick={() => setIsNavOpen(false)} aria-label="Close menu" /> : null}
+    <section className="mx-auto w-full max-w-[1480px] animate-fade-in">
+      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+        {isNavOpen ? <button className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setIsNavOpen(false)} aria-label="Close menu" /> : null}
 
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[84%] max-w-[320px] -translate-x-full rounded-r-2xl border-r border-[#dfe8e1] bg-white p-5 shadow-xl transition-transform duration-200 lg:static lg:h-auto lg:w-[280px] lg:translate-x-0 lg:rounded-2xl lg:border lg:shadow-sm ${isNavOpen ? 'translate-x-0' : ''}`}
+          className={`fixed left-0 top-0 z-40 flex h-screen w-[84%] max-w-[320px] flex-col -translate-x-full rounded-r-2xl border-r border-[var(--fitco-border)] bg-white p-5 shadow-2xl transition-transform duration-200 lg:sticky lg:top-5 lg:h-[calc(100vh-40px)] lg:w-full lg:max-w-none lg:translate-x-0 lg:rounded-3xl lg:border ${isNavOpen ? 'translate-x-0' : ''}`}
         >
-          <Logo className="mb-6" />
+          <div className="rounded-2xl border border-[#e6efe7] bg-[#f8fcf9] p-4">
+            <Logo className="text-left" />
+          </div>
 
-          <nav className="flex flex-col gap-2">
+          <nav className="mt-5 flex flex-1 flex-col gap-1.5">
             {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => onNavigate(item.path)}
-                className={`nav-item ${activeNav === item.path ? 'active' : ''}`}
-              >
-                {item.label}
+              <button key={item.path} onClick={() => onNavigate(item.path)} className={`nav-item ${activeNav === item.path ? 'active' : ''}`}>
+                <Icon type={item.icon} className="h-4 w-4 md:h-5 md:w-5" />
+                <span>{item.label}</span>
               </button>
             ))}
           </nav>
 
-          <button className="mt-8 nav-item text-[#f05b5b]" onClick={() => onNavigate(routes.logoutConfirm)}>
-            Logout
+          <button className="nav-item mt-4 text-[#ef5a5a]" onClick={() => onNavigate(routes.logoutConfirm)}>
+            <span className="text-lg">↪</span>
+            <span>Logout</span>
           </button>
         </aside>
 
-        <div className="flex-1 space-y-4">
-          <div className="flex items-center justify-between rounded-xl border border-[#dfe8e1] bg-white px-4 py-4 shadow-sm md:px-6">
-            <div className="flex items-center gap-4">
-              <button className="text-2xl text-[#47b24c] lg:hidden" onClick={() => setIsNavOpen(true)} aria-label="Open menu">
-                ☰
+        <div className="space-y-5">
+          <div className="flex items-center justify-between rounded-2xl border border-[var(--fitco-border)] bg-white px-4 py-3 shadow-sm md:px-6 md:py-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <button className="text-[var(--fitco-green)] lg:hidden" onClick={() => setIsNavOpen(true)} aria-label="Open menu">
+                <Icon type="menu" className="h-6 w-6" />
               </button>
-              <span className="hidden text-2xl text-[#47b24c] lg:block">☰</span>
+              <span className="hidden text-[var(--fitco-green)] lg:block">
+                <Icon type="menu" className="h-5 w-5" />
+              </span>
               <div>
-                <h3 className="text-lg font-bold text-[#283746] md:text-2xl">Welcome,James</h3>
-                <p className="text-sm text-[#6d7f89]">Have a nice day!</p>
+                <h3 className="text-lg font-semibold tracking-tight text-[#223343] md:text-[30px]">Welcome, James</h3>
+                <p className="text-xs text-[#748491] md:text-sm">Have a nice day!</p>
               </div>
             </div>
-            <button onClick={() => navigate(routes.profile)} className="grid h-11 w-11 place-content-center rounded-full border border-[#87c98d] text-[#47b24c]">
-              ⊙
+            <button
+              onClick={() => navigate(routes.profile)}
+              className="grid h-10 w-10 place-content-center rounded-full border border-[#93cc99] bg-[#f8fff8] text-sm font-semibold text-[var(--fitco-green)] md:h-12 md:w-12"
+            >
+              JA
             </button>
           </div>
 
-          <article className="rounded-2xl border border-[#dfe8e1] bg-white shadow-sm">
-            <header className="flex items-center justify-between rounded-t-2xl bg-[#47b24c] px-4 py-4 text-white md:px-6">
+          <article className="overflow-hidden rounded-3xl border border-[var(--fitco-border)] bg-white shadow-sm">
+            <header className="flex items-center justify-between bg-[var(--fitco-green)] px-4 py-4 text-white md:px-6">
               <div className="flex items-center gap-3">
                 {backArrowPages.has(path) ? <span className="text-lg leading-none">←</span> : null}
-                <h2 className="text-2xl font-bold md:text-4xl">{title}</h2>
+                <h2 className="text-2xl font-bold tracking-tight md:text-[44px]">{title}</h2>
               </div>
-              {showSave ? <button className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#4e9e50] md:px-6">Save</button> : null}
+              {showSave ? <button className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#3f9f45] md:px-6">Save</button> : null}
             </header>
 
             <div className="min-h-[560px] p-4 md:p-6">{children}</div>
