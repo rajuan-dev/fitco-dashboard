@@ -48,6 +48,20 @@ function normalizeCurrency(value) {
   return text.startsWith('$') ? text : /^\d+(\.\d+)?$/.test(text) ? `$${text}` : text
 }
 
+function normalizeRevenueValue(value) {
+  if (value === undefined || value === null || value === '') return '$0.00'
+  if (typeof value === 'number') return `$${value.toFixed(2)}`
+  const text = String(value).trim()
+  if (!text) return '$0.00'
+  if (text.startsWith('$')) {
+    const numeric = Number(text.replace('$', '').trim())
+    return Number.isFinite(numeric) ? `$${numeric.toFixed(2)}` : text
+  }
+  const numeric = Number(text)
+  if (Number.isFinite(numeric)) return `$${numeric.toFixed(2)}`
+  return text
+}
+
 function normalizeJoinedDate(value) {
   if (!value) return EMPTY
   const date = new Date(value)
@@ -113,7 +127,7 @@ function toDisplayTransactionId(transactionId, reference) {
 export function normalizeDashboard(payload = {}) {
   return {
     totalUsers: pick(payload, ['totalUsers', 'total_users', 'usersTotal', 'users_total'], '0'),
-    totalRevenue: pick(payload, ['totalRevenue', 'total_revenue', 'revenueTotal', 'revenue_total'], '0'),
+    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue', 'revenueTotal', 'revenue_total'], '0')),
     userRatio: pick(payload, ['userRatio', 'user_ratio', 'monthlyUsers', 'monthly_users'], Array(12).fill(0)),
   }
 }
@@ -132,9 +146,9 @@ export function normalizeUsers(payload) {
 
 export function normalizeEarnings(payload = {}) {
   return {
-    today: pick(payload, ['today', 'today_amount'], '0'),
-    thisMonth: pick(payload, ['thisMonth', 'this_month'], '0'),
-    totalRevenue: pick(payload, ['totalRevenue', 'total_revenue'], '0'),
+    today: normalizeRevenueValue(pick(payload, ['today', 'today_amount'], '0')),
+    thisMonth: normalizeRevenueValue(pick(payload, ['thisMonth', 'this_month'], '0')),
+    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue'], '0')),
   }
 }
 
