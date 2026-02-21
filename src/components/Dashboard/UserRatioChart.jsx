@@ -16,6 +16,7 @@ const CustomTooltip = ({ month, value }) => {
 
 export default function UserRatioChart({ data = [], selectedYear, onYearChange, yearOptions = [] }) {
   const [hoveredIndex, setHoveredIndex] = useState(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
 
   const chartData = useMemo(() => (Array.isArray(data) ? data : []), [data])
   const maxUsers = Math.max(...chartData.map((item) => Number(item.users || item.value || 0)), 0)
@@ -67,11 +68,28 @@ export default function UserRatioChart({ data = [], selectedYear, onYearChange, 
                 ))}
               </div>
 
+              {hoveredIndex !== null ? (
+                <div
+                  className="pointer-events-none absolute z-10 transition-all duration-75 ease-out"
+                  style={{
+                    left: `${tooltipPosition.x}px`,
+                    top: `${tooltipPosition.y}px`,
+                    transform: 'translate(-50%, calc(-100% - 14px))',
+                  }}
+                >
+                  <CustomTooltip
+                    month={chartData[hoveredIndex]?.month || chartData[hoveredIndex]?.label || `M${hoveredIndex + 1}`}
+                    value={Number(chartData[hoveredIndex]?.users || chartData[hoveredIndex]?.value || 0)}
+                  />
+                </div>
+              ) : null}
+
               <div className="absolute inset-0 grid grid-cols-12 items-end gap-2 md:gap-3">
                 {chartData.map((item, index) => {
                   const users = Number(item.users || item.value || 0)
                   const monthLabel = item.month || item.label || `M${index + 1}`
-                  const heightPercent = Math.max(10, (users / yAxisMax) * 100)
+                  const heightPercent = yAxisMax > 0 ? (users / yAxisMax) * 100 : 0
+                  const visualHeight = users > 0 ? Math.max(2, heightPercent) : 0
                   const isActive = hoveredIndex === index
 
                   return (
@@ -79,28 +97,33 @@ export default function UserRatioChart({ data = [], selectedYear, onYearChange, 
                       key={`${monthLabel}-${index}`}
                       className="relative flex h-full cursor-pointer flex-col items-center justify-end"
                       onMouseEnter={() => setHoveredIndex(index)}
-                      onMouseLeave={() => setHoveredIndex(null)}
+                      onMouseLeave={() => {
+                        setHoveredIndex(null)
+                        setTooltipPosition({ x: 0, y: 0 })
+                      }}
+                      onMouseMove={(event) => {
+                        const rect = event.currentTarget.parentElement?.getBoundingClientRect()
+                        if (!rect) return
+                        setTooltipPosition({
+                          x: event.clientX - rect.left,
+                          y: event.clientY - rect.top,
+                        })
+                      }}
                       onFocus={() => setHoveredIndex(index)}
                       onBlur={() => setHoveredIndex(null)}
                       tabIndex={0}
                     >
                       {isActive ? (
-                        <div className="absolute inset-y-0 w-10 rounded-full bg-[#edf8ee]" />
-                      ) : null}
-
-                      {isActive ? (
-                        <div className="absolute -top-16 left-1/2 z-10 -translate-x-1/2">
-                          <CustomTooltip month={monthLabel} value={users} />
-                        </div>
+                        <div className="absolute bottom-6 top-0 w-10 rounded-full bg-[#edf8ee]" />
                       ) : null}
 
                       <div
                         className={`z-[1] w-6 rounded-[12px] transition-all duration-200 md:w-7 ${
                           isActive ? 'bg-[#2f9b38] shadow-[0_10px_20px_rgba(47,155,56,0.34)] -translate-y-0.5' : 'bg-[var(--fitco-green)] shadow-[0_5px_12px_rgba(65,177,73,0.2)]'
                         }`}
-                        style={{ height: `${heightPercent}%` }}
+                        style={{ height: `${visualHeight}%`, transition: 'height 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms ease, box-shadow 200ms ease' }}
                       />
-                      <span className="mt-2 text-[10px] font-medium text-[#70808d] md:text-xs">{monthLabel}</span>
+                      <span className="relative z-[2] mt-2 text-[10px] font-medium text-[#70808d] md:text-xs">{monthLabel}</span>
                     </div>
                   )
                 })}

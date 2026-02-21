@@ -30,7 +30,7 @@ export function PageLoader() {
 
 export function ModalCard({ title, subtitle, children, centerTitle = false, max = 'max-w-3xl', onClose }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4 backdrop-blur-[1.5px]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/38 p-4" onClick={onClose}>
       <div className={`relative w-full ${max} rounded-3xl bg-white p-5 shadow-2xl md:p-8`} onClick={(event) => event.stopPropagation()}>
         {onClose ? (
           <button

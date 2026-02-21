@@ -255,6 +255,12 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [earningsPage, setEarningsPage] = useState(1)
   const [subscriptionsPage, setSubscriptionsPage] = useState(1)
   const [reportsPage, setReportsPage] = useState(1)
+  const [activeUsers, setActiveUsers] = useState([])
+  const [blockedUsersState, setBlockedUsersState] = useState([])
+  const [pendingUserAction, setPendingUserAction] = useState(null)
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [selectedUserBlocked, setSelectedUserBlocked] = useState(false)
+  const [selectedUserSource, setSelectedUserSource] = useState(routes.users)
 
   useEffect(() => {
     if (privacyPayload?.content !== undefined) setPrivacyText(privacyPayload.content)
@@ -273,6 +279,28 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       setProfileDraft(profile)
     }
   }, [profile])
+
+  useEffect(() => {
+    if (!usersLoading) {
+      setActiveUsers(users)
+    }
+  }, [users, usersLoading])
+
+  useEffect(() => {
+    if (!blockedUsersLoading) {
+      setBlockedUsersState(blockedUsers)
+    }
+  }, [blockedUsers, blockedUsersLoading])
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(activeUsers.length / PAGE_SIZE))
+    if (usersPage > maxPage) setUsersPage(maxPage)
+  }, [activeUsers.length, usersPage])
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(blockedUsersState.length / PAGE_SIZE))
+    if (blockedUsersPage > maxPage) setBlockedUsersPage(maxPage)
+  }, [blockedUsersPage, blockedUsersState.length])
 
   const handleLogout = useCallback(() => {
     clearToken()
@@ -322,54 +350,183 @@ function AdminRoutes({ path, onLogout, pushToast }) {
 
   const paginate = useCallback((rows, page) => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [])
 
+  const openBlockConfirm = useCallback((user, action, source = routes.users) => {
+    if (!user) return
+    setPendingUserAction({ user, action, source })
+    navigate(routes.blockConfirm)
+  }, [])
+
+  const openUserDetails = useCallback((user, blocked = false, source = routes.users) => {
+    if (!user) return
+    setSelectedUser(user)
+    setSelectedUserBlocked(Boolean(blocked))
+    setSelectedUserSource(source)
+    navigate(routes.userDetails)
+  }, [])
+
+  const handleConfirmUserAction = useCallback(() => {
+    if (!pendingUserAction?.user || !pendingUserAction?.action) {
+      navigate(routes.users)
+      return
+    }
+
+    const { user, action, source } = pendingUserAction
+    if (action === 'block') {
+      setActiveUsers((prev) => prev.filter((item) => item !== user))
+      setBlockedUsersState((prev) => [user, ...prev.filter((item) => item !== user)])
+      pushToast(`${user.name} blocked successfully.`)
+      navigate(source === routes.dashboard ? routes.dashboard : routes.blockedUsers)
+    } else {
+      setBlockedUsersState((prev) => prev.filter((item) => item !== user))
+      setActiveUsers((prev) => [user, ...prev.filter((item) => item !== user)])
+      pushToast(`${user.name} unblocked successfully.`)
+      navigate(source === routes.dashboard ? routes.dashboard : routes.users)
+    }
+    setPendingUserAction(null)
+  }, [pendingUserAction, pushToast])
+
+  const handleCancelUserAction = useCallback(() => {
+    const fallback = pendingUserAction?.source || (pendingUserAction?.action === 'unblock' ? routes.blockedUsers : routes.users)
+    setPendingUserAction(null)
+    navigate(fallback)
+  }, [pendingUserAction])
+
+  const findUserByReport = useCallback(
+    (reportUser) =>
+      activeUsers.find((u) => u.email === reportUser.email) ||
+      activeUsers.find((u) => u.name === reportUser.name) ||
+      blockedUsersState.find((u) => u.email === reportUser.email) ||
+      blockedUsersState.find((u) => u.name === reportUser.name),
+    [activeUsers, blockedUsersState],
+  )
+
+  const handleReportAction = useCallback(
+    (action, reportUser) => {
+      const targetUser = findUserByReport(reportUser)
+
+      if (action === 'warn') {
+        pushToast(`Warning sent to ${reportUser.name}.`)
+        return
+      }
+
+      if (action === 'disable') {
+        if (!targetUser) {
+          pushToast(`Account not found for ${reportUser.name}.`, 'error')
+          return
+        }
+        setActiveUsers((prev) => prev.filter((u) => u !== targetUser))
+        setBlockedUsersState((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+        pushToast(`${reportUser.name} account disabled.`)
+        return
+      }
+
+      if (!targetUser) {
+        pushToast(`Account not found for ${reportUser.name}.`, 'error')
+        return
+      }
+      setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
+      setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+      pushToast(`${reportUser.name} account unblocked.`)
+    },
+    [findUserByReport, pushToast],
+  )
+
+  const basePath = useMemo(() => {
+    if (path === routes.userDetails) {
+      return selectedUserSource
+    }
+    if (path === routes.blockConfirm) {
+      return pendingUserAction?.source || (pendingUserAction?.action === 'unblock' ? routes.blockedUsers : routes.users)
+    }
+    if (path === routes.transaction) {
+      return routes.earnings
+    }
+    if (path === routes.manageFees) {
+      return routes.subscriptions
+    }
+    if (path === routes.logoutConfirm) {
+      return routes.dashboard
+    }
+    return path
+  }, [path, pendingUserAction?.action, pendingUserAction?.source, selectedUserSource])
+
   const page = (
     <>
-      {path === routes.dashboard && (dashboardLoading ? <PageLoader /> : <DashboardPage data={dashboardData} users={users} />)}
+      {basePath === routes.dashboard &&
+        (dashboardLoading ? (
+          <PageLoader />
+        ) : (
+          <DashboardPage
+            data={dashboardData}
+            users={activeUsers}
+            onViewUser={(user) => openUserDetails(user, false, routes.dashboard)}
+            onBlockUser={(user) => openBlockConfirm(user, 'block', routes.dashboard)}
+          />
+        ))}
 
-      {path === routes.users &&
+      {basePath === routes.users &&
         (usersLoading ? (
           <PageLoader />
         ) : (
           <div className="space-y-4">
             <ListHeader buttonText="Blocked Users" onButtonClick={() => navigate(routes.blockedUsers)} />
-            <UsersTable rows={paginate(users, usersPage)} onView={() => navigate(routes.userDetails)} onToggleBlock={() => navigate(routes.blockConfirm)} hideFooter />
-            <PaginationBar currentPage={usersPage} totalItems={users.length} pageSize={PAGE_SIZE} onPageChange={setUsersPage} />
+            <UsersTable rows={paginate(activeUsers, usersPage)} onView={(user) => openUserDetails(user, false, routes.users)} onToggleBlock={(user) => openBlockConfirm(user, 'block', routes.users)} hideFooter />
+            <PaginationBar currentPage={usersPage} totalItems={activeUsers.length} pageSize={PAGE_SIZE} onPageChange={setUsersPage} />
           </div>
         ))}
 
-      {path === routes.blockedUsers &&
+      {basePath === routes.blockedUsers &&
         (blockedUsersLoading ? (
           <PageLoader />
         ) : (
           <div className="space-y-4">
             <ListHeader buttonText="Active Users" onButtonClick={() => navigate(routes.users)} />
-            <UsersTable rows={paginate(blockedUsers, blockedUsersPage)} blocked onView={() => navigate(routes.userDetails)} onToggleBlock={() => navigate(routes.userDetails)} hideFooter />
-            <PaginationBar currentPage={blockedUsersPage} totalItems={blockedUsers.length} pageSize={PAGE_SIZE} onPageChange={setBlockedUsersPage} />
+            <UsersTable rows={paginate(blockedUsersState, blockedUsersPage)} blocked onView={(user) => openUserDetails(user, true, routes.blockedUsers)} onToggleBlock={(user) => openBlockConfirm(user, 'unblock', routes.blockedUsers)} hideFooter />
+            <PaginationBar currentPage={blockedUsersPage} totalItems={blockedUsersState.length} pageSize={PAGE_SIZE} onPageChange={setBlockedUsersPage} />
           </div>
         ))}
 
-      {path === routes.earnings &&
+      {basePath === routes.earnings &&
         (earningsLoading || transactionsLoading ? (
           <PageLoader />
         ) : (
           <div className="space-y-4">
+            <div className="rounded-2xl border border-[#cfe2d2] bg-gradient-to-r from-[#edf8ee] via-[#f6fbf6] to-[#ecf6ff] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5d7b67]">Revenue Overview</p>
+              <p className="mt-1 text-sm text-[#476054]">Track income trends and inspect each transaction from one view.</p>
+            </div>
             <div className="grid gap-4 md:grid-cols-3">
               <StatCard value={earningsData.today} label="Today" />
               <StatCard value={earningsData.thisMonth} label="This Month" />
               <StatCard value={earningsData.totalRevenue} label="Total Revenue" />
             </div>
             <BasicTable
+              variant="earnings"
               headers={['S.ID', 'Full Name', 'Trx ID', 'Plans', 'Price', 'Date', 'Action']}
               avatarColumnIndex={1}
               rows={paginate(transactions, earningsPage).map((t) => [
                 t.id,
                 t.name,
                 t.trxId,
-                t.plan,
-                t.price,
-                t.date,
-                <button key={`trx-${t.id}`} className="text-[var(--fitco-green)]" onClick={() => navigate(routes.transaction)}>
-                  ◉
+                <span key={`plan-${t.id}`} className="inline-flex rounded-full bg-[#e9f6eb] px-2.5 py-1 text-xs font-semibold text-[#2f8f37]">
+                  {t.plan}
+                </span>,
+                <span key={`price-${t.id}`} className="font-semibold text-[#2f8850]">
+                  {t.price}
+                </span>,
+                <span key={`date-${t.id}`} className="text-[#4d6370]">
+                  {t.date}
+                </span>,
+                <button
+                  key={`trx-${t.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#cde6cf] bg-[#f5fcf6] px-2.5 py-1.5 text-xs font-semibold text-[var(--fitco-green)] transition hover:border-[#9ed6a2] hover:bg-[#eaf8ec]"
+                  onClick={() => navigate(routes.transaction)}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1.5 12s4-6 10.5-6 10.5 6 10.5 6-4 6-10.5 6S1.5 12 1.5 12z" />
+                    <circle cx="12" cy="12" r="2.8" />
+                  </svg>
+                  View
                 </button>,
               ])}
             />
@@ -377,50 +534,103 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           </div>
         ))}
 
-      {path === routes.subscriptions &&
+      {basePath === routes.subscriptions &&
         (subscriptionsLoading ? (
           <PageLoader />
         ) : (
           <div className="space-y-4">
+            <div className="rounded-2xl border border-[#cfe2d2] bg-gradient-to-r from-[#edf8ee] via-[#f6fbf6] to-[#ecf6ff] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5d7b67]">Membership Status</p>
+              <p className="mt-1 text-sm text-[#4e627d]">Monitor active plans, renewals, and subscription outcomes.</p>
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <input className="field max-w-[380px]" placeholder="Search User" />
+              <input className="field max-w-[380px] border-[#cde6cf] bg-[#f7fcf7] focus:border-[#81c987] focus:ring-[#d6edd8]" placeholder="Search User" />
               <button onClick={() => navigate(routes.manageFees)} className="btn-primary w-auto px-5">
                 Manage Fees
               </button>
             </div>
             <BasicTable
+              variant="subscriptions"
               headers={['S.ID', 'User', 'Email', 'Status', 'Plans', 'Expiration Date']}
               avatarColumnIndex={1}
               rows={paginate(subscriptions, subscriptionsPage).map((s) => [
                 s.id,
                 s.name,
                 s.email,
-                <span key={`status-${s.id}`} className={s.status === 'Paid' ? 'font-semibold text-[#53bc88]' : 'font-semibold text-[#ef5a5a]'}>
+                <span
+                  key={`status-${s.id}`}
+                  className={
+                    s.status === 'Paid'
+                      ? 'inline-flex rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
+                      : 'inline-flex rounded-full bg-[#ffecec] px-2.5 py-1 text-xs font-semibold text-[#d94f4f]'
+                  }
+                >
                   {s.status}
                 </span>,
-                s.plan,
-                s.expirationDate,
+                <span key={`plan-sub-${s.id}`} className="font-medium text-[#2f8850]">
+                  {s.plan}
+                </span>,
+                <span key={`expiry-${s.id}`} className="text-[#4d6370]">
+                  {s.expirationDate}
+                </span>,
               ])}
             />
             <PaginationBar currentPage={subscriptionsPage} totalItems={subscriptions.length} pageSize={PAGE_SIZE} onPageChange={setSubscriptionsPage} />
           </div>
         ))}
 
-      {path === routes.reports &&
+      {basePath === routes.reports &&
         (reportsLoading ? (
           <PageLoader />
         ) : (
-          <>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[#ecdccf] bg-gradient-to-r from-[#fff6ea] via-[#fffaf1] to-[#f4fbf6] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a36534]">User Reports</p>
+              <p className="mt-1 text-sm text-[#6f6257]">Review submitted concerns with sender, reason, and report time.</p>
+            </div>
             <BasicTable
-              headers={['S.ID', 'Report From', 'Email', 'Report Reason', 'Date & Time']}
+              variant="reports"
+              headers={['S.ID', 'Report From', 'Email', 'Report Reason', 'Date & Time', 'Action']}
               avatarColumnIndex={1}
-              rows={paginate(reports, reportsPage).map((r) => [r.id, r.name, r.email, r.reason, r.reportedAt])}
+              rows={paginate(reports, reportsPage).map((r) => [
+                r.id,
+                r.name,
+                <span key={`email-${r.id}`} className="text-[#465d70]">
+                  {r.email}
+                </span>,
+                <span key={`reason-${r.id}`} className="inline-flex rounded-full bg-[#fff0e0] px-2.5 py-1 text-xs font-semibold text-[#b06833]">
+                  {r.reason}
+                </span>,
+                <span key={`date-r-${r.id}`} className="inline-flex rounded-full bg-[#f2f6fc] px-2.5 py-1 text-xs font-semibold text-[#4f6785]">
+                  {r.reportedAt}
+                </span>,
+                <div key={`action-r-${r.id}`} className="flex flex-wrap gap-1.5">
+                  <button
+                    className="rounded-md border border-[#eecf99] bg-[#fff4df] px-2.5 py-1 text-xs font-semibold text-[#a16a2d] transition hover:bg-[#ffe9c7]"
+                    onClick={() => handleReportAction('warn', r)}
+                  >
+                    Warn
+                  </button>
+                  <button
+                    className="rounded-md border border-[#f2c2c2] bg-[#ffeded] px-2.5 py-1 text-xs font-semibold text-[#cc4d4d] transition hover:bg-[#ffdede]"
+                    onClick={() => handleReportAction('disable', r)}
+                  >
+                    Disable
+                  </button>
+                  <button
+                    className="rounded-md border border-[#cde6cf] bg-[#f2fbf3] px-2.5 py-1 text-xs font-semibold text-[#2f9b38] transition hover:bg-[#e4f5e6]"
+                    onClick={() => handleReportAction('unblock', r)}
+                  >
+                    Unblock
+                  </button>
+                </div>,
+              ])}
             />
             <PaginationBar currentPage={reportsPage} totalItems={reports.length} pageSize={PAGE_SIZE} onPageChange={setReportsPage} />
-          </>
+          </div>
         ))}
 
-      {path === routes.profile &&
+      {basePath === routes.profile &&
         (profileLoading ? (
           <PageLoader />
         ) : (
@@ -444,7 +654,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           </div>
         ))}
 
-      {path === routes.settings && (
+      {basePath === routes.settings && (
         <div className="rounded-2xl border border-[var(--fitco-border)] bg-white p-3 md:p-4">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a9aa6]">Preferences</p>
           <SettingRow icon="profile" label="Profile" onClick={() => navigate(routes.profile)} />
@@ -455,9 +665,9 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         </div>
       )}
 
-      {path === routes.changePassword ? <ChangePasswordPanel pushToast={pushToast} /> : null}
+      {basePath === routes.changePassword ? <ChangePasswordPanel pushToast={pushToast} /> : null}
 
-      {path === routes.settingsForgot ? (
+      {basePath === routes.settingsForgot ? (
         <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--fitco-border)] bg-white p-5 md:p-6">
           <p className="mb-4 text-lg font-semibold text-[#2e3d4d] md:text-2xl">Enter your email address to get a verification code for resetting your password.</p>
           <Field label="Email" value="Enter your email" readOnly />
@@ -467,7 +677,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         </div>
       ) : null}
 
-      {path === routes.settingsOtp ? (
+      {basePath === routes.settingsOtp ? (
         <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--fitco-border)] bg-white p-5 md:p-6">
           <p className="mb-4 text-lg font-semibold text-[#2e3d4d] md:text-2xl">Please check your email. We have sent a code to contact@gmail.com</p>
           <OtpBoxes />
@@ -481,15 +691,15 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         </div>
       ) : null}
 
-      {path === routes.privacy && !privacyLoading ? (
+      {basePath === routes.privacy && !privacyLoading ? (
         <ContentManagementPage title="Privacy Policy" value={privacyText} onChange={setPrivacyText} onSave={savePrivacy} saving={savingCms} />
       ) : null}
 
-      {path === routes.about && !aboutLoading ? (
+      {basePath === routes.about && !aboutLoading ? (
         <ContentManagementPage title="About Us" value={aboutText} onChange={setAboutText} onSave={saveAbout} saving={savingCms} />
       ) : null}
 
-      {path === routes.terms && !termsLoading ? (
+      {basePath === routes.terms && !termsLoading ? (
         <ContentManagementPage title="Terms & Conditions" value={termsText} onChange={setTermsText} onSave={saveTerms} saving={savingCms} />
       ) : null}
     </>
@@ -497,9 +707,22 @@ function AdminRoutes({ path, onLogout, pushToast }) {
 
   return (
     <>
-      <AdminLayout path={path}>{page}</AdminLayout>
-      {path === routes.userDetails ? <UserDetailsModal blocked={false} onClose={() => navigate(routes.users)} /> : null}
-      {path === routes.blockConfirm ? <ConfirmModal title="Do you want to Block this user?" onConfirm={() => navigate(routes.blockedUsers)} onCancel={() => navigate(routes.users)} /> : null}
+      <AdminLayout path={basePath}>{page}</AdminLayout>
+      {path === routes.userDetails ? (
+        <UserDetailsModal
+          user={selectedUser}
+          blocked={selectedUserBlocked}
+          onClose={() => navigate(selectedUserSource)}
+          onAction={() => openBlockConfirm(selectedUser, selectedUserBlocked ? 'unblock' : 'block', selectedUserSource)}
+        />
+      ) : null}
+      {path === routes.blockConfirm ? (
+        <ConfirmModal
+          title={pendingUserAction?.action === 'unblock' ? 'Do you want to Unblock this user?' : 'Do you want to Block this user?'}
+          onConfirm={handleConfirmUserAction}
+          onCancel={handleCancelUserAction}
+        />
+      ) : null}
       {path === routes.transaction ? <TransactionModal onClose={() => navigate(routes.earnings)} /> : null}
       {path === routes.manageFees ? <ManageFeesModal config={subscriptionConfig} onConfigChange={updateSubscriptionConfig} pushToast={pushToast} onClose={() => navigate(routes.subscriptions)} /> : null}
       {path === routes.logoutConfirm ? <ConfirmModal title="Confirm logging out!" onConfirm={handleLogout} onCancel={() => navigate(routes.dashboard)} /> : null}
@@ -507,7 +730,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   )
 }
 
-function DashboardPage({ data, users }) {
+function DashboardPage({ data, users, onViewUser, onBlockUser }) {
   const [selectedYear, setSelectedYear] = useState('2024')
   const yearOptions = useMemo(() => ['2024', '2023', '2022'], [])
   const chartData = useMemo(
@@ -528,7 +751,7 @@ function DashboardPage({ data, users }) {
 
       <UserRatioChart data={chartData} selectedYear={selectedYear} onYearChange={setSelectedYear} yearOptions={yearOptions} />
 
-      <UsersTable rows={users.slice(0, 8)} onView={() => navigate(routes.userDetails)} onToggleBlock={() => navigate(routes.blockConfirm)} title="Recent Users" hideFooter />
+      <UsersTable rows={users.slice(0, 8)} onView={onViewUser} onToggleBlock={onBlockUser} title="Recent Users" hideFooter />
     </div>
   )
 }
@@ -821,22 +1044,35 @@ function ToastStack({ toasts }) {
   )
 }
 
-function UserDetailsModal({ blocked, onClose }) {
+function UserDetailsModal({ user, blocked, onClose, onAction }) {
+  const detailUser = user || {
+    name: 'John Doe',
+    email: 'john@email.com',
+    phone: '+12313412',
+    joinedDate: '02-24-2024',
+  }
+  const initials = String(detailUser.name || 'User')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('')
+
   return (
-    <ModalCard title="User Details" subtitle="See all details about John Doe" onClose={onClose}>
+    <ModalCard title="User Details" subtitle={`See all details about ${detailUser.name || 'User'}`} onClose={onClose}>
       <div className="mb-4 flex items-center gap-4">
-        <div className="avatar">JD</div>
-        <h3 className="text-3xl font-semibold text-[#46b14b] md:text-4xl">John Doe</h3>
+        <div className="avatar">{initials || 'U'}</div>
+        <h3 className="text-3xl font-semibold text-[#46b14b] md:text-4xl">{detailUser.name}</h3>
       </div>
-      <InfoRow k="Name" v="John Doe." />
-      <InfoRow k="Email" v="john@email.com" />
-      <InfoRow k="Phone" v="+12313412" />
-      <InfoRow k="Joining Date" v="02-24-2024" />
+      <InfoRow k="Name" v={detailUser.name || '-'} />
+      <InfoRow k="Email" v={detailUser.email || '-'} />
+      <InfoRow k="Phone" v={detailUser.phone || '-'} />
+      <InfoRow k="Joining Date" v={detailUser.joinedDate || detailUser.date || '-'} />
       <div className="mt-7 grid gap-3 md:grid-cols-2">
-        <button className="btn-outline" onClick={() => navigate(routes.users)}>
+        <button className="btn-outline" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-primary" onClick={() => navigate(blocked ? routes.users : routes.blockConfirm)}>
+        <button className="btn-primary" onClick={onAction}>
           {blocked ? 'Unblock' : 'Block'}
         </button>
       </div>
