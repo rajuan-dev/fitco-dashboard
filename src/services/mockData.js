@@ -41,3 +41,12 @@ export const mockTransactions = mockUsers.map((user, index) => ({
   price: index % 2 ? '$9.99' : '$19.99',
   date: '02-24-2024',
 }))
+
+export const mockCms = {
+  privacyPolicy:
+    'Iacus nulla eu netus pretium. Pellentesque scelerisque tellus nisl eu nisl sed senectus nunc. Porta sollicitudin vel elit varius nulla sit diam sed. Diam pellentesque orci eget gravida cursus.',
+  aboutUs:
+    'Fitco is focused on helping users build healthier routines through a practical fitness app experience. We build tools that support consistency, coaching, and measurable progress.',
+  termsAndConditions:
+    'By using Fitco services, users agree to the platform terms, payment policy, and account safety requirements. Use of the platform indicates acceptance of all active policies and updates.',
+}

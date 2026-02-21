@@ -11,7 +11,13 @@ function RowActions({ blocked, onView, onToggleBlock }) {
   )
 }
 
-export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title = '' }) {
+function getInitials(name = '') {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'NA'
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('')
+}
+
+export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title = '', hideFooter = false }) {
   const headers = ['S.ID', 'Full Name', 'Email', 'Phone No', 'Joined Date', 'Action']
 
   return (
@@ -32,7 +38,7 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
                 <td className="px-3 py-3 font-medium text-[#5f7380]">{row.id}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="avatar-sm">RF</div>
+                    <div className="avatar-sm">{getInitials(row.name)}</div>
                     <span className="font-medium text-[#2d3f50]">{row.name}</span>
                   </div>
                 </td>
@@ -53,7 +59,7 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
           <article key={`${row.id}-m-${i}`} className="rounded-2xl border border-[var(--fitco-border)] bg-[#fbfefb] p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="avatar-sm">RF</div>
+                <div className="avatar-sm">{getInitials(row.name)}</div>
                 <strong className="text-sm text-[#2f3f4f]">{row.name}</strong>
               </div>
               <span className="text-xs text-[#6f818d]">ID {row.id}</span>
@@ -75,15 +81,17 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
         ))}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-[#6ea672] md:text-sm">
-        <span>SHOWING 1-8 OF 250</span>
-        <span>1 2 3 4....30 60 120</span>
-      </div>
+      {!hideFooter ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-[#6ea672] md:text-sm">
+          <span>SHOWING 1-8 OF 250</span>
+          <span>1 2 3 4....30 60 120</span>
+        </div>
+      ) : null}
     </section>
   )
 }
 
-export function BasicTable({ headers, rows }) {
+export function BasicTable({ headers, rows, avatarColumnIndex = null }) {
   return (
     <>
       <div className="table-wrap hidden md:block">
@@ -99,7 +107,16 @@ export function BasicTable({ headers, rows }) {
             {rows.map((row, idx) => (
               <tr key={`r-${idx}`} className="border-t border-[#edf2ee] transition hover:bg-[#f8fcf8]">
                 {row.map((cell, i) => (
-                  <td key={`c-${idx}-${i}`} className="px-3 py-3 text-[#3f5663]">{cell}</td>
+                  <td key={`c-${idx}-${i}`} className="px-3 py-3 text-[#3f5663]">
+                    {avatarColumnIndex === i && typeof cell === 'string' ? (
+                      <div className="flex items-center gap-3">
+                        <div className="avatar-sm">{getInitials(cell)}</div>
+                        <span className="font-medium text-[#2d3f50]">{cell}</span>
+                      </div>
+                    ) : (
+                      cell
+                    )}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -113,7 +130,16 @@ export function BasicTable({ headers, rows }) {
             {headers.map((header, i) => (
               <div key={`mobile-cell-${idx}-${i}`} className="flex justify-between gap-3 border-b border-[#edf2ee] py-2 text-xs last:border-b-0">
                 <span className="font-semibold text-[#5d7367]">{header}</span>
-                <span className="text-right text-[#2f3f4f]">{row[i]}</span>
+                <span className="text-right text-[#2f3f4f]">
+                  {avatarColumnIndex === i && typeof row[i] === 'string' ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="avatar-sm">{getInitials(row[i])}</span>
+                      <span>{row[i]}</span>
+                    </span>
+                  ) : (
+                    row[i]
+                  )}
+                </span>
               </div>
             ))}
           </article>

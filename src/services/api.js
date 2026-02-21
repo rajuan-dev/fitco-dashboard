@@ -4,6 +4,7 @@ import {
   mockReports,
   mockSubscriptionRows,
   mockTransactions,
+  mockCms,
   mockUsers,
 } from './mockData'
 import { getToken } from './auth'
@@ -67,4 +68,11 @@ export const api = {
     normalizeProfile(
       await request('/profile', { username: 'userdemo', email: 'email@gmail.com', contactNo: '+1 222 333 4444', name: 'Mr. Admin' }),
     ),
+  getPrivacyPolicy: async () => request('/settings/privacy-policy', { content: mockCms.privacyPolicy }),
+  upsertPrivacyPolicy: async ({ content }) => request('/settings/privacy-policy', { success: true, content }, { method: 'POST', body: { content } }),
+  getAboutUs: async () => request('/settings/about-us', { content: mockCms.aboutUs }),
+  upsertAboutUs: async ({ content }) => request('/settings/about-us', { success: true, content }, { method: 'POST', body: { content } }),
+  getTermsAndConditions: async () => request('/settings/terms-condition', { content: mockCms.termsAndConditions }),
+  upsertTermsAndConditions: async ({ content }) =>
+    request('/settings/terms-condition', { success: true, content }, { method: 'POST', body: { content } }),
 }

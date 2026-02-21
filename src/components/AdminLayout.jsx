@@ -126,7 +126,6 @@ function Icon({ type, className = '' }) {
 export function AdminLayout({ path, children }) {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const title = titles[path] || 'Dashboard'
-  const showSave = [routes.privacy, routes.about, routes.terms].includes(path)
   const activeNav = path.startsWith('/admin/users')
     ? routes.users
     : path.startsWith('/admin/earnings')
@@ -144,13 +143,25 @@ export function AdminLayout({ path, children }) {
     navigate(to)
   }
 
+  const getBackPath = () => {
+    if (path === routes.blockedUsers) return routes.users
+    if (path === routes.changePassword || path === routes.settingsForgot || path === routes.settingsOtp || path === routes.privacy || path === routes.about || path === routes.terms) {
+      return routes.settings
+    }
+    if (path === routes.profile) return routes.settings
+    if (path === routes.users || path === routes.earnings || path === routes.subscriptions || path === routes.reports || path === routes.settings) {
+      return routes.dashboard
+    }
+    return routes.dashboard
+  }
+
   return (
-    <section className="mx-auto w-full max-w-[1480px] animate-fade-in">
-      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+    <section className="w-full animate-fade-in">
+      <div className="grid min-h-screen gap-4 p-3 md:p-4 lg:grid-cols-[280px_1fr]">
         {isNavOpen ? <button className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setIsNavOpen(false)} aria-label="Close menu" /> : null}
 
         <aside
-          className={`fixed left-0 top-0 z-40 flex h-screen w-[84%] max-w-[320px] flex-col -translate-x-full rounded-r-2xl border-r border-[var(--fitco-border)] bg-white p-5 shadow-2xl transition-transform duration-200 lg:sticky lg:top-5 lg:h-[calc(100vh-40px)] lg:w-full lg:max-w-none lg:translate-x-0 lg:rounded-3xl lg:border ${isNavOpen ? 'translate-x-0' : ''}`}
+          className={`fixed left-0 top-0 z-40 flex h-screen w-[84%] max-w-[320px] flex-col -translate-x-full rounded-r-2xl border-r border-[var(--fitco-border)] bg-white p-5 shadow-2xl transition-transform duration-200 lg:sticky lg:top-4 lg:h-[calc(100vh-32px)] lg:w-full lg:max-w-none lg:translate-x-0 lg:rounded-3xl lg:border ${isNavOpen ? 'translate-x-0' : ''}`}
         >
           <div className="rounded-2xl border border-[#e6efe7] bg-[#f8fcf9] p-4">
             <Logo className="text-left" />
@@ -181,7 +192,7 @@ export function AdminLayout({ path, children }) {
                 <Icon type="menu" className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-[#223343] md:text-[30px]">Welcome, James</h3>
+                <h3 className="text-base font-semibold tracking-tight text-[#223343] md:text-xl">Welcome, James</h3>
                 <p className="text-xs text-[#748491] md:text-sm">Have a nice day!</p>
               </div>
             </div>
@@ -196,10 +207,20 @@ export function AdminLayout({ path, children }) {
           <article className="overflow-hidden rounded-3xl border border-[var(--fitco-border)] bg-white shadow-sm">
             <header className="flex items-center justify-between bg-[var(--fitco-green)] px-4 py-4 text-white md:px-6">
               <div className="flex items-center gap-3">
-                {backArrowPages.has(path) ? <span className="text-lg leading-none">←</span> : null}
-                <h2 className="text-2xl font-bold tracking-tight md:text-[44px]">{title}</h2>
+                {backArrowPages.has(path) ? (
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(getBackPath())}
+                    aria-label="Go back"
+                    className="grid h-10 w-10 place-content-center rounded-full border border-white/45 bg-white/12 transition hover:bg-white/22"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+                ) : null}
+                <h2 className="text-xl font-bold tracking-tight md:text-3xl">{title}</h2>
               </div>
-              {showSave ? <button className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#3f9f45] md:px-6">Save</button> : null}
             </header>
 
             <div className="min-h-[560px] p-4 md:p-6">{children}</div>
