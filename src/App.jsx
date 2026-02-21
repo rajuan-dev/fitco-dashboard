@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import JoditEditor from 'jodit-react'
+import 'jodit/es2021/jodit.min.css'
 import { AdminLayout } from './components/AdminLayout'
 import { Field, InfoRow, Logo, ModalCard, OtpBoxes, PageLoader } from './components/UI'
 import { defaultRoute, routes } from './config/routes'
@@ -770,35 +772,57 @@ function PasswordField({ label, value, onChange, show, setShow }) {
 
 function RichTextEditor({ value, onChange }) {
   const editorRef = useRef(null)
-
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || ''
-    }
-  }, [value])
-
-  const apply = (command, commandValue = null) => {
-    document.execCommand(command, false, commandValue)
-    onChange(editorRef.current?.innerHTML || '')
-  }
+  const editorConfig = useMemo(
+    () => ({
+      readonly: false,
+      statusbar: false,
+      toolbarSticky: false,
+      showCharsCounter: false,
+      showWordsCounter: false,
+      askBeforePasteHTML: false,
+      askBeforePasteFromWord: false,
+      height: 320,
+      minHeight: 320,
+      controls: {
+        fontsize: {
+          list: ['10', '12', '14', '16', '18', '20', '24', '28', '32', '40'],
+        },
+      },
+      buttons: [
+        'bold',
+        'italic',
+        'underline',
+        '|',
+        'fontsize',
+        'brush',
+        '|',
+        'ul',
+        'ol',
+        'outdent',
+        'indent',
+        '|',
+        'left',
+        'center',
+        'right',
+        'justify',
+      ],
+      buttonsMD: ['bold', 'italic', 'underline', '|', 'fontsize', 'ul', 'ol', '|', 'left', 'center', 'right'],
+      buttonsSM: ['bold', 'italic', 'underline', '|', 'fontsize', 'ul', 'ol', '|', 'left', 'center', 'right'],
+      buttonsXS: ['bold', 'italic', 'underline', '|', 'fontsize', 'ul', 'ol', '|', 'left', 'center', 'right'],
+      removeButtons: ['source', 'image', 'video', 'file', 'table', 'link', 'superscript', 'subscript'],
+      disablePlugins: ['about', 'print', 'preview', 'search', 'file', 'image', 'video'],
+    }),
+    [],
+  )
 
   return (
-    <div className="rounded-xl border border-[#ccdbcf]">
-      <div className="rt-toolbar">
-        <button type="button" onClick={() => apply('bold')}>B</button>
-        <button type="button" onClick={() => apply('italic')}><em>I</em></button>
-        <button type="button" onClick={() => apply('underline')}><u>U</u></button>
-        <button type="button" onClick={() => apply('insertUnorderedList')}>• List</button>
-        <button type="button" onClick={() => apply('insertOrderedList')}>1. List</button>
-        <button type="button" onClick={() => apply('justifyLeft')}>Left</button>
-        <button type="button" onClick={() => apply('justifyCenter')}>Center</button>
-        <button type="button" onClick={() => apply('justifyRight')}>Right</button>
-      </div>
-      <div
+    <div className="overflow-hidden rounded-xl border border-[#ccdbcf]">
+      <JoditEditor
         ref={editorRef}
-        contentEditable
-        className="rt-content"
-        onInput={() => onChange(editorRef.current?.innerHTML || '')}
+        value={value || ''}
+        config={editorConfig}
+        onBlur={(nextValue) => onChange(nextValue)}
+        onChange={() => {}}
       />
     </div>
   )
