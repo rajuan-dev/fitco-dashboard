@@ -16,6 +16,22 @@ npm run lint
 npm run build
 ```
 
+## Project Structure (Admin)
+
+```txt
+src/
+  features/admin/
+    dashboard/
+      DashboardPage.jsx
+      components/UserRatioChart.jsx
+    users/UsersPage.jsx
+    earnings/EarningsPage.jsx
+    subscriptions/SubscriptionsPage.jsx
+    reports/ReportsPage.jsx
+    settings/SettingsPage.jsx
+    shared/TableControls.jsx
+```
+
 ## Routing
 
 This project uses a lightweight custom router based on `window.history`.
@@ -50,8 +66,17 @@ This project uses a lightweight custom router based on `window.history`.
 ## Backend Integration
 
 1. Copy `.env.example` to `.env` and set `VITE_API_BASE_URL`.
-2. Ensure backend endpoints follow `src/services/CONTRACTS.md`.
-3. If backend is not available, mock data is used automatically.
+2. Optional: set `VITE_API_TIMEOUT_MS` (default: `15000`).
+3. Keep `VITE_API_USE_MOCKS_ON_ERROR=false` for production.
+4. Ensure backend endpoints follow `src/services/CONTRACTS.md`.
+5. If backend is not available and `VITE_API_BASE_URL` is empty, mock data is used automatically.
+
+### API Behavior
+
+- No `VITE_API_BASE_URL`: always use local mock data.
+- With `VITE_API_BASE_URL`:
+  - default: real API errors are surfaced to UI.
+  - if `VITE_API_USE_MOCKS_ON_ERROR=true`: failed API calls fallback to mock payloads.
 
 ## Auth Guard
 

@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminLayout } from './components/AdminLayout'
-import { BasicTable, UsersTable } from './components/Tables'
-import UserRatioChart from './components/Dashboard/UserRatioChart'
-import { Field, InfoRow, Logo, ModalCard, OtpBoxes, PageLoader, StatCard } from './components/UI'
+import { Field, InfoRow, Logo, ModalCard, OtpBoxes, PageLoader } from './components/UI'
 import { defaultRoute, routes } from './config/routes'
+import DashboardPage from './features/admin/dashboard/DashboardPage'
+import EarningsPage from './features/admin/earnings/EarningsPage'
+import ReportsPage from './features/admin/reports/ReportsPage'
+import SettingsPage from './features/admin/settings/SettingsPage'
+import SubscriptionsPage from './features/admin/subscriptions/SubscriptionsPage'
+import UsersPage from './features/admin/users/UsersPage'
 import { useAsyncData } from './hooks/useAsyncData'
 import { navigate, useRouter } from './hooks/useRouter'
 import { api } from './services/api'
@@ -12,6 +16,7 @@ import { clearToken, isAuthenticated, setToken } from './services/auth'
 const isAuthRoute = (path) => path.startsWith('/auth')
 const isAdminRoute = (path) => path.startsWith('/admin')
 const PAGE_SIZE = 8
+const getErrorMessage = (error, fallback) => error?.payload?.message || error?.message || fallback
 
 function App() {
   const { path } = useRouter()
@@ -88,6 +93,8 @@ function AuthRoutes({ onAuthSuccess }) {
       } else {
         setError('Unable to sign in. Please try again.')
       }
+    } catch (error) {
+      setError(getErrorMessage(error, 'Unable to sign in. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -105,6 +112,8 @@ function AuthRoutes({ onAuthSuccess }) {
       } else {
         setError('Invalid OTP. Please try again.')
       }
+    } catch (error) {
+      setError(getErrorMessage(error, 'Invalid OTP. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -121,6 +130,8 @@ function AuthRoutes({ onAuthSuccess }) {
     try {
       await api.requestPasswordReset({ email })
       navigate(routes.reset)
+    } catch (error) {
+      setError(getErrorMessage(error, 'Failed to send reset code. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -143,6 +154,8 @@ function AuthRoutes({ onAuthSuccess }) {
       await api.resetPassword({ email, password, confirmPassword })
       onAuthSuccess()
       navigate(routes.dashboard)
+    } catch (error) {
+      setError(getErrorMessage(error, 'Failed to reset password. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -393,6 +406,8 @@ function AdminRoutes({ path, onLogout, pushToast }) {
 
   const findUserByReport = useCallback(
     (reportUser) =>
+      activeUsers.find((u) => String(u.id) === String(reportUser.userId)) ||
+      blockedUsersState.find((u) => String(u.id) === String(reportUser.userId)) ||
       activeUsers.find((u) => u.email === reportUser.email) ||
       activeUsers.find((u) => u.name === reportUser.name) ||
       blockedUsersState.find((u) => u.email === reportUser.email) ||
@@ -401,11 +416,17 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   )
 
   const handleReportAction = useCallback(
-    (action, reportUser) => {
+    async (action, reportUser) => {
       const targetUser = findUserByReport(reportUser)
+      const userId = targetUser?.id || reportUser.userId || null
 
       if (action === 'warn') {
-        pushToast(`Warning sent to ${reportUser.name}.`)
+        try {
+          await api.warnUser({ userId, reportId: reportUser.id, reason: reportUser.reason })
+          pushToast(`Warning sent to ${reportUser.name}.`)
+        } catch (error) {
+          pushToast(getErrorMessage(error, `Failed to warn ${reportUser.name}.`), 'error')
+        }
         return
       }
 
@@ -414,9 +435,14 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           pushToast(`Account not found for ${reportUser.name}.`, 'error')
           return
         }
-        setActiveUsers((prev) => prev.filter((u) => u !== targetUser))
-        setBlockedUsersState((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
-        pushToast(`${reportUser.name} account disabled.`)
+        try {
+          await api.disableUser({ userId, reportId: reportUser.id, reason: reportUser.reason })
+          setActiveUsers((prev) => prev.filter((u) => u !== targetUser))
+          setBlockedUsersState((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+          pushToast(`${reportUser.name} account disabled.`)
+        } catch (error) {
+          pushToast(getErrorMessage(error, `Failed to disable ${reportUser.name}.`), 'error')
+        }
         return
       }
 
@@ -424,9 +450,14 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         pushToast(`Account not found for ${reportUser.name}.`, 'error')
         return
       }
-      setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
-      setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
-      pushToast(`${reportUser.name} account unblocked.`)
+      try {
+        await api.unblockUser({ userId, reportId: reportUser.id })
+        setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
+        setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+        pushToast(`${reportUser.name} account unblocked.`)
+      } catch (error) {
+        pushToast(getErrorMessage(error, `Failed to unblock ${reportUser.name}.`), 'error')
+      }
     },
     [findUserByReport, pushToast],
   )
@@ -465,170 +496,77 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         ))}
 
       {basePath === routes.users &&
-        (usersLoading ? (
-          <PageLoader />
-        ) : (
-          <div className="space-y-4">
-            <ListHeader buttonText="Blocked Users" onButtonClick={() => navigate(routes.blockedUsers)} />
-            <UsersTable rows={paginate(activeUsers, usersPage)} onView={(user) => openUserDetails(user, false, routes.users)} onToggleBlock={(user) => openBlockConfirm(user, 'block', routes.users)} hideFooter />
-            <PaginationBar currentPage={usersPage} totalItems={activeUsers.length} pageSize={PAGE_SIZE} onPageChange={setUsersPage} />
-          </div>
-        ))}
+        (
+          <UsersPage
+            loading={usersLoading}
+            rows={paginate(activeUsers, usersPage)}
+            page={usersPage}
+            pageSize={PAGE_SIZE}
+            totalItems={activeUsers.length}
+            toggleButtonText="Blocked Users"
+            onTogglePage={() => navigate(routes.blockedUsers)}
+            onViewUser={(user) => openUserDetails(user, false, routes.users)}
+            onToggleBlock={(user) => openBlockConfirm(user, 'block', routes.users)}
+            onPageChange={setUsersPage}
+          />
+        )}
 
       {basePath === routes.blockedUsers &&
-        (blockedUsersLoading ? (
-          <PageLoader />
-        ) : (
-          <div className="space-y-4">
-            <ListHeader buttonText="Active Users" onButtonClick={() => navigate(routes.users)} />
-            <UsersTable rows={paginate(blockedUsersState, blockedUsersPage)} blocked onView={(user) => openUserDetails(user, true, routes.blockedUsers)} onToggleBlock={(user) => openBlockConfirm(user, 'unblock', routes.blockedUsers)} hideFooter />
-            <PaginationBar currentPage={blockedUsersPage} totalItems={blockedUsersState.length} pageSize={PAGE_SIZE} onPageChange={setBlockedUsersPage} />
-          </div>
-        ))}
+        (
+          <UsersPage
+            loading={blockedUsersLoading}
+            rows={paginate(blockedUsersState, blockedUsersPage)}
+            page={blockedUsersPage}
+            pageSize={PAGE_SIZE}
+            totalItems={blockedUsersState.length}
+            blocked
+            toggleButtonText="Active Users"
+            onTogglePage={() => navigate(routes.users)}
+            onViewUser={(user) => openUserDetails(user, true, routes.blockedUsers)}
+            onToggleBlock={(user) => openBlockConfirm(user, 'unblock', routes.blockedUsers)}
+            onPageChange={setBlockedUsersPage}
+          />
+        )}
 
       {basePath === routes.earnings &&
-        (earningsLoading || transactionsLoading ? (
-          <PageLoader />
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[#cfe2d2] bg-gradient-to-r from-[#edf8ee] via-[#f6fbf6] to-[#ecf6ff] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5d7b67]">Revenue Overview</p>
-              <p className="mt-1 text-sm text-[#476054]">Track income trends and inspect each transaction from one view.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              <StatCard value={earningsData.today} label="Today" />
-              <StatCard value={earningsData.thisMonth} label="This Month" />
-              <StatCard value={earningsData.totalRevenue} label="Total Revenue" />
-            </div>
-            <BasicTable
-              variant="earnings"
-              headers={['S.ID', 'Full Name', 'Trx ID', 'Plans', 'Price', 'Date', 'Action']}
-              avatarColumnIndex={1}
-              rows={paginate(transactions, earningsPage).map((t) => [
-                t.id,
-                t.name,
-                t.trxId,
-                <span key={`plan-${t.id}`} className="inline-flex rounded-full bg-[#e9f6eb] px-2.5 py-1 text-xs font-semibold text-[#2f8f37]">
-                  {t.plan}
-                </span>,
-                <span key={`price-${t.id}`} className="font-semibold text-[#2f8850]">
-                  {t.price}
-                </span>,
-                <span key={`date-${t.id}`} className="text-[#4d6370]">
-                  {t.date}
-                </span>,
-                <button
-                  key={`trx-${t.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[#cde6cf] bg-[#f5fcf6] px-2.5 py-1.5 text-xs font-semibold text-[var(--fitco-green)] transition hover:border-[#9ed6a2] hover:bg-[#eaf8ec]"
-                  onClick={() => navigate(routes.transaction)}
-                >
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1.5 12s4-6 10.5-6 10.5 6 10.5 6-4 6-10.5 6S1.5 12 1.5 12z" />
-                    <circle cx="12" cy="12" r="2.8" />
-                  </svg>
-                  View
-                </button>,
-              ])}
-            />
-            <PaginationBar currentPage={earningsPage} totalItems={transactions.length} pageSize={PAGE_SIZE} onPageChange={setEarningsPage} />
-          </div>
-        ))}
+        (
+          <EarningsPage
+            loading={earningsLoading || transactionsLoading}
+            earningsData={earningsData}
+            transactions={paginate(transactions, earningsPage)}
+            page={earningsPage}
+            pageSize={PAGE_SIZE}
+            totalItems={transactions.length}
+            onPageChange={setEarningsPage}
+            onViewTransaction={() => navigate(routes.transaction)}
+          />
+        )}
 
       {basePath === routes.subscriptions &&
-        (subscriptionsLoading ? (
-          <PageLoader />
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[#cfe2d2] bg-gradient-to-r from-[#edf8ee] via-[#f6fbf6] to-[#ecf6ff] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5d7b67]">Membership Status</p>
-              <p className="mt-1 text-sm text-[#4e627d]">Monitor active plans, renewals, and subscription outcomes.</p>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <input className="field max-w-[380px] border-[#cde6cf] bg-[#f7fcf7] focus:border-[#81c987] focus:ring-[#d6edd8]" placeholder="Search User" />
-              <button onClick={() => navigate(routes.manageFees)} className="btn-primary w-auto px-5">
-                Manage Fees
-              </button>
-            </div>
-            <BasicTable
-              variant="subscriptions"
-              headers={['S.ID', 'User', 'Email', 'Status', 'Plans', 'Expiration Date']}
-              avatarColumnIndex={1}
-              rows={paginate(subscriptions, subscriptionsPage).map((s) => [
-                s.id,
-                s.name,
-                s.email,
-                <span
-                  key={`status-${s.id}`}
-                  className={
-                    s.status === 'Paid'
-                      ? 'inline-flex rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
-                      : 'inline-flex rounded-full bg-[#ffecec] px-2.5 py-1 text-xs font-semibold text-[#d94f4f]'
-                  }
-                >
-                  {s.status}
-                </span>,
-                <span key={`plan-sub-${s.id}`} className="font-medium text-[#2f8850]">
-                  {s.plan}
-                </span>,
-                <span key={`expiry-${s.id}`} className="text-[#4d6370]">
-                  {s.expirationDate}
-                </span>,
-              ])}
-            />
-            <PaginationBar currentPage={subscriptionsPage} totalItems={subscriptions.length} pageSize={PAGE_SIZE} onPageChange={setSubscriptionsPage} />
-          </div>
-        ))}
+        (
+          <SubscriptionsPage
+            loading={subscriptionsLoading}
+            subscriptions={paginate(subscriptions, subscriptionsPage)}
+            page={subscriptionsPage}
+            pageSize={PAGE_SIZE}
+            totalItems={subscriptions.length}
+            onPageChange={setSubscriptionsPage}
+            onManageFees={() => navigate(routes.manageFees)}
+          />
+        )}
 
       {basePath === routes.reports &&
-        (reportsLoading ? (
-          <PageLoader />
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[#ecdccf] bg-gradient-to-r from-[#fff6ea] via-[#fffaf1] to-[#f4fbf6] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a36534]">User Reports</p>
-              <p className="mt-1 text-sm text-[#6f6257]">Review submitted concerns with sender, reason, and report time.</p>
-            </div>
-            <BasicTable
-              variant="reports"
-              headers={['S.ID', 'Report From', 'Email', 'Report Reason', 'Date & Time', 'Action']}
-              avatarColumnIndex={1}
-              rows={paginate(reports, reportsPage).map((r) => [
-                r.id,
-                r.name,
-                <span key={`email-${r.id}`} className="text-[#465d70]">
-                  {r.email}
-                </span>,
-                <span key={`reason-${r.id}`} className="inline-flex rounded-full bg-[#fff0e0] px-2.5 py-1 text-xs font-semibold text-[#b06833]">
-                  {r.reason}
-                </span>,
-                <span key={`date-r-${r.id}`} className="inline-flex rounded-full bg-[#f2f6fc] px-2.5 py-1 text-xs font-semibold text-[#4f6785]">
-                  {r.reportedAt}
-                </span>,
-                <div key={`action-r-${r.id}`} className="flex flex-wrap gap-1.5">
-                  <button
-                    className="rounded-md border border-[#eecf99] bg-[#fff4df] px-2.5 py-1 text-xs font-semibold text-[#a16a2d] transition hover:bg-[#ffe9c7]"
-                    onClick={() => handleReportAction('warn', r)}
-                  >
-                    Warn
-                  </button>
-                  <button
-                    className="rounded-md border border-[#f2c2c2] bg-[#ffeded] px-2.5 py-1 text-xs font-semibold text-[#cc4d4d] transition hover:bg-[#ffdede]"
-                    onClick={() => handleReportAction('disable', r)}
-                  >
-                    Disable
-                  </button>
-                  <button
-                    className="rounded-md border border-[#cde6cf] bg-[#f2fbf3] px-2.5 py-1 text-xs font-semibold text-[#2f9b38] transition hover:bg-[#e4f5e6]"
-                    onClick={() => handleReportAction('unblock', r)}
-                  >
-                    Unblock
-                  </button>
-                </div>,
-              ])}
-            />
-            <PaginationBar currentPage={reportsPage} totalItems={reports.length} pageSize={PAGE_SIZE} onPageChange={setReportsPage} />
-          </div>
-        ))}
+        (
+          <ReportsPage
+            loading={reportsLoading}
+            reports={paginate(reports, reportsPage)}
+            page={reportsPage}
+            pageSize={PAGE_SIZE}
+            totalItems={reports.length}
+            onPageChange={setReportsPage}
+            onReportAction={handleReportAction}
+          />
+        )}
 
       {basePath === routes.profile &&
         (profileLoading ? (
@@ -655,14 +593,15 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         ))}
 
       {basePath === routes.settings && (
-        <div className="rounded-2xl border border-[var(--fitco-border)] bg-white p-3 md:p-4">
-          <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8a9aa6]">Preferences</p>
-          <SettingRow icon="profile" label="Profile" onClick={() => navigate(routes.profile)} />
-          <SettingRow icon="password" label="Change Password" onClick={() => navigate(routes.changePassword)} />
-          <SettingRow icon="privacy" label="Privacy Policy" onClick={() => navigate(routes.privacy)} />
-          <SettingRow icon="terms" label="Terms & Conditions" onClick={() => navigate(routes.terms)} />
-          <SettingRow icon="about" label="About Us" onClick={() => navigate(routes.about)} />
-        </div>
+        <SettingsPage
+          onNavigate={(key) => {
+            if (key === 'profile') navigate(routes.profile)
+            if (key === 'change-password') navigate(routes.changePassword)
+            if (key === 'privacy') navigate(routes.privacy)
+            if (key === 'terms') navigate(routes.terms)
+            if (key === 'about') navigate(routes.about)
+          }}
+        />
       )}
 
       {basePath === routes.changePassword ? <ChangePasswordPanel pushToast={pushToast} /> : null}
@@ -727,153 +666,6 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       {path === routes.manageFees ? <ManageFeesModal config={subscriptionConfig} onConfigChange={updateSubscriptionConfig} pushToast={pushToast} onClose={() => navigate(routes.subscriptions)} /> : null}
       {path === routes.logoutConfirm ? <ConfirmModal title="Confirm logging out!" onConfirm={handleLogout} onCancel={() => navigate(routes.dashboard)} /> : null}
     </>
-  )
-}
-
-function DashboardPage({ data, users, onViewUser, onBlockUser }) {
-  const [selectedYear, setSelectedYear] = useState('2024')
-  const yearOptions = useMemo(() => ['2024', '2023', '2022'], [])
-  const chartData = useMemo(
-    () =>
-      (data.userRatio || []).map((value, i) => ({
-        month: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i],
-        users: Number(value?.users ?? value?.value ?? value?.count ?? value) || 0,
-      })),
-    [data.userRatio],
-  )
-
-  return (
-    <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2">
-        <MetricCard eyebrow="Overview" value={data.totalUsers} label="Total Users" trend="+12% vs last month" />
-        <MetricCard eyebrow="Performance" value={data.totalRevenue} label="Total Revenue" trend="+8% vs last month" />
-      </div>
-
-      <UserRatioChart data={chartData} selectedYear={selectedYear} onYearChange={setSelectedYear} yearOptions={yearOptions} />
-
-      <UsersTable rows={users.slice(0, 8)} onView={onViewUser} onToggleBlock={onBlockUser} title="Recent Users" hideFooter />
-    </div>
-  )
-}
-
-function PaginationBar({ currentPage, totalItems, pageSize, onPageChange }) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
-  const safePage = Math.min(currentPage, totalPages)
-  const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const end = Math.min(safePage * pageSize, totalItems)
-  const visiblePages = []
-  for (let page = 1; page <= totalPages; page += 1) {
-    if (page === 1 || page === totalPages || Math.abs(page - safePage) <= 1) {
-      visiblePages.push(page)
-    }
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-[#6ea672] md:text-sm">
-      <span>{`SHOWING ${start}-${end} OF ${totalItems}`}</span>
-      <div className="flex items-center gap-1">
-        <button className="rounded-md border border-[#cfe3d1] px-2 py-1 text-[#5f7783] disabled:opacity-50" onClick={() => onPageChange(safePage - 1)} disabled={safePage <= 1}>
-          Prev
-        </button>
-        {visiblePages.map((page, index) => (
-          <span key={page} className="inline-flex items-center">
-            {index > 0 && page - visiblePages[index - 1] > 1 ? <span className="px-1 text-[#7f9790]">…</span> : null}
-            <button
-              className={`rounded-md border px-2 py-1 ${page === safePage ? 'border-[var(--fitco-green)] bg-[var(--fitco-green)] text-white' : 'border-[#cfe3d1] text-[#5f7783]'}`}
-              onClick={() => onPageChange(page)}
-            >
-              {page}
-            </button>
-          </span>
-        ))}
-        <button
-          className="rounded-md border border-[#cfe3d1] px-2 py-1 text-[#5f7783] disabled:opacity-50"
-          onClick={() => onPageChange(safePage + 1)}
-          disabled={safePage >= totalPages}
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ListHeader({ buttonText, onButtonClick }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="relative min-w-[260px] flex-1">
-        <input className="field pl-10" placeholder="Search User" />
-        <span className="absolute left-3 top-2.5 text-lg text-[#6a7f72]">⌕</span>
-      </div>
-      <button onClick={onButtonClick} className="btn-primary w-auto px-5">
-        {buttonText}
-      </button>
-    </div>
-  )
-}
-
-function SettingRow({ icon, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center justify-between rounded-xl border border-transparent px-2 py-3 text-left text-base text-[#2e3d4d] transition hover:border-[#def0e0] hover:bg-[#f4fbf5] hover:text-[var(--fitco-green)] md:px-3 md:text-lg"
-    >
-      <span className="flex items-center gap-3 font-medium">
-        <span className="grid h-6 w-6 place-content-center text-[#7fa0b3]">
-          <SettingIcon type={icon} />
-        </span>
-        <span>{label}</span>
-      </span>
-      <span className="text-[#8aa0ae]">›</span>
-    </button>
-  )
-}
-
-function SettingIcon({ type }) {
-  if (type === 'profile') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21c.8-4.2 3.8-6 8-6s7.2 1.8 8 6H4z" />
-      </svg>
-    )
-  }
-
-  if (type === 'password') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="4" y="11" width="16" height="9" rx="2" />
-        <path d="M8 11V8a4 4 0 1 1 8 0v3" />
-        <circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
-      </svg>
-    )
-  }
-
-  if (type === 'privacy') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M7 3h7l5 5v13H7z" />
-        <path d="M14 3v5h5" />
-        <path d="M9 13h6M9 17h6" />
-      </svg>
-    )
-  }
-
-  if (type === 'terms') {
-    return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M7 3h10v18H7z" />
-        <path d="M10 8h4M10 12h4M10 16h4" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 10v6" />
-      <circle cx="12" cy="7" r="1" fill="currentColor" stroke="none" />
-    </svg>
   )
 }
 
@@ -947,21 +739,6 @@ function ChangePasswordPanel({ pushToast }) {
         <button className="btn-primary" onClick={handleChangePassword} disabled={saving}>
           {saving ? 'Changing...' : 'Change Password'}
         </button>
-      </div>
-    </div>
-  )
-}
-
-function MetricCard({ eyebrow, value, label, trend }) {
-  return (
-    <div className="rounded-2xl border border-[var(--fitco-border)] bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8a9aa6]">{eyebrow}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-3xl font-bold tracking-tight text-[#203245] md:text-4xl">{value}</p>
-          <p className="mt-1 text-sm font-semibold text-[#5f7482]">{label}</p>
-        </div>
-        <span className="rounded-full bg-[#e8f7ea] px-3 py-1 text-xs font-semibold text-[#2d8f35]">{trend}</span>
       </div>
     </div>
   )
