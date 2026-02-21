@@ -1,0 +1,27 @@
+export const routes = {
+  login: '/auth/login',
+  otp: '/auth/otp',
+  forgot: '/auth/forgot-password',
+  reset: '/auth/reset-password',
+  dashboard: '/admin/dashboard',
+  users: '/admin/users',
+  blockedUsers: '/admin/users/blocked',
+  userDetails: '/admin/users/details',
+  blockConfirm: '/admin/users/confirm-block',
+  earnings: '/admin/earnings',
+  transaction: '/admin/earnings/transaction',
+  subscriptions: '/admin/subscriptions',
+  manageFees: '/admin/subscriptions/manage-fees',
+  reports: '/admin/reports',
+  profile: '/admin/profile',
+  settings: '/admin/settings',
+  changePassword: '/admin/settings/change-password',
+  settingsForgot: '/admin/settings/forgot-password',
+  settingsOtp: '/admin/settings/verify-otp',
+  privacy: '/admin/settings/privacy-policy',
+  about: '/admin/settings/about-us',
+  terms: '/admin/settings/terms',
+  logoutConfirm: '/admin/logout-confirm',
+}
+
+export const defaultRoute = routes.login

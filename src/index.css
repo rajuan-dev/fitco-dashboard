@@ -1,1 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui;
+}
+
+:root {
+  font-family: var(--font-sans);
+  --fitco-green: #45b14a;
+  --fitco-green-dark: #3ba140;
+  --fitco-surface: #eef3ef;
+  --fitco-border: #dfe8e1;
+}
+
+body {
+  margin: 0;
+  color: #2f3f4f;
+}
+
+.app-bg {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(125, 181, 132, 0.16), transparent 32%),
+    radial-gradient(circle at 100% 100%, rgba(160, 200, 168, 0.14), transparent 26%),
+    #eef3ef;
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-lg border border-[#cfd8d1] bg-white px-4 py-2.5 text-sm text-[#2f3f4f] outline-none;
+  }
+
+  .btn-primary {
+    @apply w-full rounded-lg bg-[#45b14a] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#3ba140] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-outline {
+    @apply w-full rounded-lg border border-[#71be76] px-5 py-3 text-base font-semibold text-[#45b14a] transition hover:bg-[#edf7ed];
+  }
+
+  .otp-box {
+    @apply grid h-14 w-14 place-content-center rounded-lg border border-[#98cd9d] text-2xl font-semibold text-[#2f3f4f];
+  }
+
+  .nav-item {
+    @apply rounded-lg px-4 py-2 text-left text-base font-medium text-[#2f3f4f] transition hover:bg-[#edf7ed] hover:text-[#45b14a] md:text-[28px];
+  }
+
+  .nav-item.active {
+    @apply bg-[#45b14a] text-white hover:bg-[#45b14a] hover:text-white;
+  }
+
+  .avatar {
+    @apply grid h-20 w-20 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-xl font-bold text-[#1b4d24];
+  }
+
+  .avatar-sm {
+    @apply grid h-8 w-8 place-content-center rounded-full bg-gradient-to-br from-[#d2e8d4] to-[#8dcf93] text-[10px] font-bold text-[#1b4d24];
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-xl border border-[#dfe8e1];
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 280ms ease-out;
+}

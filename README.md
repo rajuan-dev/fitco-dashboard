@@ -1,16 +1,59 @@
-# React + Vite
+# Fitco Dashboard Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite implementation of the Fitco dashboard and auth screens from the provided design PDF.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+## Build
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm run lint
+npm run build
+```
 
-## Expanding the ESLint configuration
+## Routing
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+This project uses a lightweight custom router based on `window.history`.
+
+### Auth
+- `/auth/login`
+- `/auth/otp`
+- `/auth/forgot-password`
+- `/auth/reset-password`
+
+### Admin
+- `/admin/dashboard`
+- `/admin/users`
+- `/admin/users/blocked`
+- `/admin/users/details`
+- `/admin/users/confirm-block`
+- `/admin/earnings`
+- `/admin/earnings/transaction`
+- `/admin/subscriptions`
+- `/admin/subscriptions/manage-fees`
+- `/admin/reports`
+- `/admin/profile`
+- `/admin/settings`
+- `/admin/settings/change-password`
+- `/admin/settings/forgot-password`
+- `/admin/settings/verify-otp`
+- `/admin/settings/privacy-policy`
+- `/admin/settings/about-us`
+- `/admin/settings/terms`
+- `/admin/logout-confirm`
+
+## Backend Integration
+
+1. Copy `.env.example` to `.env` and set `VITE_API_BASE_URL`.
+2. Ensure backend endpoints follow `src/services/CONTRACTS.md`.
+3. If backend is not available, mock data is used automatically.
+
+## Auth Guard
+
+- Admin routes are protected by token presence in `localStorage` (`fitco_auth_token`).
+- Logging out clears the token and redirects to `/auth/login`.
