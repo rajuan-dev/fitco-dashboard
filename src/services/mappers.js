@@ -195,8 +195,10 @@ export function normalizeReports(payload) {
     id: normalizeIdentifier(unwrapValue(pick(row, ['id', '_id', 'sid', 'reportId', 'report_id'], null)), index),
     userId: unwrapValue(pick(row, ['userId', 'user_id', 'reportedUserId', 'reported_user_id'], row?.user?._id || null)),
     name: pick(row, ['name', 'reportFrom', 'report_from', 'reportedByName', 'reported_by_name'], row?.user?.name || 'Unknown User'),
-    email: pick(row, ['email', 'reportedByEmail', 'reported_by_email'], row?.user?.email || EMPTY),
+    email: row?.user?.email || EMPTY,
     reason: pick(row, ['reason', 'reportReason', 'report_reason', 'issueType'], EMPTY),
+    description: pick(row, ['description', 'details', 'message'], EMPTY),
+    status: pick(row, ['status'], 'open'),
     reportedAt: normalizeDateTime(pick(row, ['reportedAt', 'date', 'created_at', 'createdAt'], row?.createdAt || EMPTY)),
   }))
 }

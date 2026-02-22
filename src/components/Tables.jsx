@@ -91,6 +91,7 @@ export function UsersTable({ rows, blocked = false, onView, onToggleBlock, title
 
 const tableVariants = {
   default: {
+    tableMinWidth: 'min-w-[780px]',
     desktopWrap: 'rounded-2xl border border-[var(--fitco-border)] bg-white',
     header: 'bg-[#f8fcf8] text-[#5d7367]',
     row: 'border-t border-[#edf2ee] transition hover:bg-[#f8fcf8]',
@@ -98,6 +99,7 @@ const tableVariants = {
     mobileHeader: 'font-semibold text-[#5d7367]',
   },
   earnings: {
+    tableMinWidth: 'min-w-[780px]',
     desktopWrap: 'rounded-2xl border border-[#cfe2d2] bg-gradient-to-b from-[#fbfefb] to-[#f2f9f3]',
     header: 'bg-gradient-to-r from-[#2f9b38] to-[#5fbe66] text-white',
     row: 'border-t border-[#e3efe5] transition hover:bg-[#eef8ef]',
@@ -105,6 +107,7 @@ const tableVariants = {
     mobileHeader: 'font-semibold text-[#2f8850]',
   },
   subscriptions: {
+    tableMinWidth: 'min-w-[780px]',
     desktopWrap: 'rounded-2xl border border-[#cfe2d2] bg-gradient-to-b from-[#fbfefb] to-[#f2f9f3]',
     header: 'bg-gradient-to-r from-[#2f9b38] to-[#5fbe66] text-white',
     row: 'border-t border-[#e3efe5] transition hover:bg-[#eef8ef]',
@@ -112,6 +115,7 @@ const tableVariants = {
     mobileHeader: 'font-semibold text-[#2f8850]',
   },
   reports: {
+    tableMinWidth: 'min-w-[1280px]',
     desktopWrap: 'rounded-2xl border border-[#e8ddd2] bg-gradient-to-b from-[#fffdf8] to-[#fdf6ed]',
     header: 'bg-gradient-to-r from-[#b86b33] to-[#d58b4f] text-white',
     row: 'border-t border-[#f0e3d8] transition hover:bg-[#fdf3e8]',
@@ -127,7 +131,7 @@ export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 
   return (
     <>
       <div className={`table-wrap hidden md:block ${styles.desktopWrap}`}>
-        <table className="min-w-[780px] w-full text-left text-sm">
+        <table className={`${styles.tableMinWidth || 'min-w-[780px]'} w-full text-left text-sm`}>
           <thead className={styles.header}>
             <tr>
               {headers.map((h) => (
@@ -139,7 +143,7 @@ export function BasicTable({ headers, rows, avatarColumnIndex = null, variant = 
             {rows.map((row, idx) => (
               <tr key={`r-${idx}`} className={styles.row}>
                 {row.map((cell, i) => (
-                  <td key={`c-${idx}-${i}`} className="px-3 py-3 text-[#3f5663]">
+                  <td key={`c-${idx}-${i}`} className="align-top px-3 py-3 text-[#3f5663]">
                     {avatarColumnIndex === i && typeof (i === 0 && hasSerialColumn ? serialStart + idx : cell) === 'string' ? (
                       <div className="flex items-center gap-3">
                         <div className="avatar-sm">{getInitials(i === 0 && hasSerialColumn ? serialStart + idx : cell)}</div>

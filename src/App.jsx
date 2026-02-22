@@ -344,6 +344,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [earningsPage, setEarningsPage] = useState(1)
   const [subscriptionsPage, setSubscriptionsPage] = useState(1)
   const [reportsPage, setReportsPage] = useState(1)
+  const [reportsState, setReportsState] = useState([])
   const [activeUsers, setActiveUsers] = useState([])
   const [blockedUsersState, setBlockedUsersState] = useState([])
   const [pendingUserAction, setPendingUserAction] = useState(null)
@@ -391,6 +392,12 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       setBlockedUsersState(blockedUsers)
     }
   }, [blockedUsers, blockedUsersLoading])
+
+  useEffect(() => {
+    if (!reportsLoading) {
+      setReportsState(reports)
+    }
+  }, [reports, reportsLoading])
 
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(activeUsers.length / PAGE_SIZE))
@@ -537,6 +544,17 @@ function AdminRoutes({ path, onLogout, pushToast }) {
     [activeUsers, blockedUsersState],
   )
 
+  const isReportUserBlocked = useCallback(
+    (reportUser) =>
+      blockedUsersState.some(
+        (u) =>
+          (reportUser.userId && String(u.id) === String(reportUser.userId)) ||
+          (reportUser.email && u.email === reportUser.email) ||
+          (reportUser.name && u.name === reportUser.name),
+      ),
+    [blockedUsersState],
+  )
+
   const handleReportAction = useCallback(
     async (action, reportUser) => {
       const targetUser = findUserByReport(reportUser)
@@ -545,9 +563,21 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       if (action === 'warn') {
         try {
           await api.warnUser({ userId, reportId: reportUser.id, reason: reportUser.reason })
+          setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'in_progress' } : report)))
           pushToast(`Warning sent to ${reportUser.name}.`)
         } catch (error) {
           pushToast(getErrorMessage(error, `Failed to warn ${reportUser.name}.`), 'error')
+        }
+        return
+      }
+
+      if (action === 'resolve') {
+        try {
+          await api.resolveReport({ reportId: reportUser.id })
+          setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'resolved' } : report)))
+          pushToast(`Report resolved for ${reportUser.name}.`)
+        } catch (error) {
+          pushToast(getErrorMessage(error, `Failed to resolve report for ${reportUser.name}.`), 'error')
         }
         return
       }
@@ -561,9 +591,39 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           await api.disableUser({ userId, reportId: reportUser.id, reason: reportUser.reason })
           setActiveUsers((prev) => prev.filter((u) => u !== targetUser))
           setBlockedUsersState((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+          setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'in_progress' } : report)))
           pushToast(`${reportUser.name} account disabled.`)
         } catch (error) {
           pushToast(getErrorMessage(error, `Failed to disable ${reportUser.name}.`), 'error')
+        }
+        return
+      }
+
+      if (action === 'toggle_block') {
+        if (!targetUser) {
+          pushToast(`Account not found for ${reportUser.name}.`, 'error')
+          return
+        }
+
+        const isBlocked = blockedUsersState.some((u) => String(u.id) === String(targetUser.id))
+
+        try {
+          if (isBlocked) {
+            await api.restoreUserAccess({ userId, reportId: reportUser.id })
+            setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
+            setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+            setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'in_progress' } : report)))
+            pushToast(`${reportUser.name} account enabled.`)
+            return
+          }
+
+          await api.disableUser({ userId, reportId: reportUser.id, reason: reportUser.reason })
+          setActiveUsers((prev) => prev.filter((u) => u !== targetUser))
+          setBlockedUsersState((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+          setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'in_progress' } : report)))
+          pushToast(`${reportUser.name} account disabled.`)
+        } catch (error) {
+          pushToast(getErrorMessage(error, `Failed to update access for ${reportUser.name}.`), 'error')
         }
         return
       }
@@ -576,12 +636,13 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         await api.restoreUserAccess({ userId, reportId: reportUser.id })
         setBlockedUsersState((prev) => prev.filter((u) => u !== targetUser))
         setActiveUsers((prev) => [targetUser, ...prev.filter((u) => u !== targetUser)])
+        setReportsState((prev) => prev.map((report) => (String(report.id) === String(reportUser.id) ? { ...report, status: 'in_progress' } : report)))
         pushToast(`${reportUser.name} account restored.`)
       } catch (error) {
         pushToast(getErrorMessage(error, `Failed to restore ${reportUser.name}.`), 'error')
       }
     },
-    [findUserByReport, pushToast],
+    [blockedUsersState, findUserByReport, pushToast],
   )
 
   const basePath = useMemo(() => {
@@ -681,10 +742,16 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         (
           <ReportsPage
             loading={reportsLoading}
-            reports={paginate(reports, reportsPage)}
+            reports={paginate(
+              reportsState.map((report) => ({
+                ...report,
+                isBlocked: isReportUserBlocked(report),
+              })),
+              reportsPage,
+            )}
             page={reportsPage}
             pageSize={PAGE_SIZE}
-            totalItems={reports.length}
+            totalItems={reportsState.length}
             onPageChange={setReportsPage}
             onReportAction={handleReportAction}
           />

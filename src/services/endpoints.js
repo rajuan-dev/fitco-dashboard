@@ -31,6 +31,7 @@ export const endpoints = {
   reports: {
     list: '/api/v1/reports',
     warn: '/api/v1/reports/actions/warn',
+    resolve: '/api/v1/reports/actions/resolve',
     disable: '/api/v1/reports/actions/disable',
     unblock: '/api/v1/reports/actions/unblock',
   },

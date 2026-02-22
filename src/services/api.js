@@ -22,6 +22,11 @@ const reportMockRows = mockUsers.map((user, i) => ({
   ...user,
   userId: user.id,
   reason: mockReports[i % mockReports.length],
+  description: `Sample report detail for ${mockReports[i % mockReports.length]}.`,
+  contactName: user.name,
+  contactEmail: user.email,
+  contactInfo: `${user.name} | ${user.email}`,
+  status: 'open',
   reportedAt: '02-24-2025',
 }))
 
@@ -227,6 +232,8 @@ export const api = {
 
   warnUser: async ({ userId, reportId, reason }) =>
     request(endpoints.reports.warn, { method: 'POST', body: { userId, reportId, reason } }),
+  resolveReport: async ({ reportId }) =>
+    request(endpoints.reports.resolve, { method: 'POST', body: { reportId } }),
   disableUser: async ({ userId, reportId, reason }) =>
     request(endpoints.reports.disable, { method: 'POST', body: { userId, reportId, reason } }),
   restoreUserAccess: async ({ userId, reportId }) =>

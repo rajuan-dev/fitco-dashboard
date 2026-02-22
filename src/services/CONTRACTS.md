@@ -33,8 +33,16 @@ The dashboard app calls admin endpoints under `/api/v1/*`.
 - `PATCH /api/v1/dashboard/subscription-pricing`
 
 ## Reports
+- `POST /api/v1/reports` (user token required)
+  - request:
+    - `issueType`: one of `app_not_working | payment_issue | chat_problem | barcode_scan_issue | subscription_issue | other`
+    - `description`: string (min 10 chars)
+    - optional `name`: string
+    - optional `email`: string
+    - optional `contactInfo`: string
 - `GET /api/v1/reports`
 - `POST /api/v1/reports/actions/warn`
+- `POST /api/v1/reports/actions/resolve`
 - `POST /api/v1/reports/actions/disable`
 - `POST /api/v1/reports/actions/unblock`
 

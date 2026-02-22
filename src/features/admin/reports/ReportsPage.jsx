@@ -13,39 +13,61 @@ export default function ReportsPage({ loading, reports, page, pageSize, totalIte
       </div>
       <BasicTable
         variant="reports"
-        headers={['S.ID', 'Report From', 'Email', 'Report Reason', 'Date & Time', 'Action']}
+        headers={['S.ID', 'Report From', 'Email', 'Issue Type', 'Description', 'Status', 'Date & Time', 'Action']}
         avatarColumnIndex={1}
         serialStart={(page - 1) * pageSize + 1}
         rows={reports.map((r) => [
           r.id,
           r.name,
           <span key={`email-${r.id}`} className="text-[#465d70]">
-            {r.email}
+            {r.email || '-'}
           </span>,
-          <span key={`reason-${r.id}`} className="inline-flex rounded-full bg-[#fff0e0] px-2.5 py-1 text-xs font-semibold text-[#b06833]">
-            {r.reason}
+          <span key={`reason-${r.id}`} className="inline-flex whitespace-nowrap rounded-full bg-[#fff0e0] px-2.5 py-1 text-xs font-semibold text-[#b06833]">
+            {String(r.reason || '-').replaceAll('_', ' ')}
           </span>,
-          <span key={`date-r-${r.id}`} className="inline-flex rounded-full bg-[#f2f6fc] px-2.5 py-1 text-xs font-semibold text-[#4f6785]">
+          <p key={`desc-${r.id}`} className="max-w-[440px] whitespace-normal break-words leading-5 text-[#465d70]">
+            {r.description || '-'}
+          </p>,
+          <span
+            key={`status-${r.id}`}
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+              r.status === 'resolved'
+                ? 'bg-[#e8f7eb] text-[#2f9b38]'
+                : r.status === 'in_progress'
+                  ? 'bg-[#fff6dd] text-[#a16a2d]'
+                  : 'bg-[#f2f6fc] text-[#4f6785]'
+            }`}
+          >
+            {String(r.status || 'open').replaceAll('_', ' ')}
+          </span>,
+          <span key={`date-r-${r.id}`} className="inline-flex whitespace-nowrap rounded-full bg-[#f2f6fc] px-2.5 py-1 text-xs font-semibold text-[#4f6785]">
             {r.reportedAt}
           </span>,
-          <div key={`action-r-${r.id}`} className="flex flex-wrap gap-1.5">
+          <div key={`action-r-${r.id}`} className="flex flex-wrap items-center gap-1.5 whitespace-nowrap">
             <button
-              className="rounded-md border border-[#eecf99] bg-[#fff4df] px-2.5 py-1 text-xs font-semibold text-[#a16a2d] transition hover:bg-[#ffe9c7]"
+              className="rounded-md border border-[#eecf99] bg-[#fff4df] px-2.5 py-1 text-xs font-semibold text-[#a16a2d] transition hover:bg-[#ffe9c7] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => onReportAction('warn', r)}
+              disabled={r.status === 'resolved'}
             >
               Warn
             </button>
             <button
-              className="rounded-md border border-[#f2c2c2] bg-[#ffeded] px-2.5 py-1 text-xs font-semibold text-[#cc4d4d] transition hover:bg-[#ffdede]"
-              onClick={() => onReportAction('disable', r)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                r.isBlocked
+                  ? 'border border-[#cde6cf] bg-[#f2fbf3] text-[#2f9b38] hover:bg-[#e4f5e6]'
+                  : 'border border-[#f2c2c2] bg-[#ffeded] text-[#cc4d4d] hover:bg-[#ffdede]'
+              }`}
+              onClick={() => onReportAction('toggle_block', r)}
+              disabled={r.status === 'resolved'}
             >
-              Disable
+              {r.isBlocked ? 'Enable' : 'Disable'}
             </button>
             <button
-              className="rounded-md border border-[#cde6cf] bg-[#f2fbf3] px-2.5 py-1 text-xs font-semibold text-[#2f9b38] transition hover:bg-[#e4f5e6]"
-              onClick={() => onReportAction('restore', r)}
+              className="rounded-md border border-[#bfd7ee] bg-[#ebf5ff] px-2.5 py-1 text-xs font-semibold text-[#2f6fb0] transition hover:bg-[#ddecff] disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => onReportAction('resolve', r)}
+              disabled={r.status === 'resolved'}
             >
-              Restore Access
+              {r.status === 'resolved' ? 'Resolved' : 'Resolve'}
             </button>
           </div>,
         ])}
