@@ -22,6 +22,8 @@ export const endpoints = {
   },
   subscriptions: {
     list: '/api/v1/subscriptions',
+    updateStatus: (subscriptionId) => `/api/v1/subscriptions/${subscriptionId}/status`,
+    updateUserStatus: (userId) => `/api/v1/subscriptions/user/${userId}/status`,
   },
   coupons: {
     list: '/api/v1/coupons',

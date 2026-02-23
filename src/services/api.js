@@ -1,12 +1,4 @@
-import {
-  mockDashboard,
-  mockReports,
-  mockSubscriptionRows,
-  mockTransactions,
-  mockCms,
-  mockUsers,
-} from './mockData'
-import { hasLiveApi, request, shouldUseFallbackOnError } from './apiClient'
+import { request } from './apiClient'
 import { endpoints } from './endpoints'
 import {
   normalizeDashboard,
@@ -17,18 +9,6 @@ import {
   normalizeTransactions,
   normalizeUsers,
 } from './mappers'
-
-const reportMockRows = mockUsers.map((user, i) => ({
-  ...user,
-  userId: user.id,
-  reason: mockReports[i % mockReports.length],
-  description: `Sample report detail for ${mockReports[i % mockReports.length]}.`,
-  contactName: user.name,
-  contactEmail: user.email,
-  contactInfo: `${user.name} | ${user.email}`,
-  status: 'open',
-  reportedAt: '02-24-2025',
-}))
 
 function centsToPrice(cents, currency = 'USD') {
   const amount = Number(cents || 0) / 100
@@ -41,25 +21,10 @@ function toCmsContent(listPayload, key, fallback = '') {
   return { content: found?.content || fallback }
 }
 
-async function withMock(path, fallbackData, options = {}) {
-  if (!hasLiveApi()) {
-    return fallbackData
-  }
-
-  try {
-    return await request(path, options)
-  } catch (error) {
-    if (shouldUseFallbackOnError()) {
-      return fallbackData
-    }
-    throw error
-  }
-}
-
 async function loadDashboardData() {
   const [totals, userRatio] = await Promise.all([
-    withMock(endpoints.dashboard.totals, mockDashboard),
-    withMock(`${endpoints.dashboard.userRatio}?year=${new Date().getFullYear()}`, { monthly: [] }),
+    request(endpoints.dashboard.totals),
+    request(`${endpoints.dashboard.userRatio}?year=${new Date().getFullYear()}`),
   ])
 
   return normalizeDashboard({
@@ -70,8 +35,8 @@ async function loadDashboardData() {
 
 async function loadRevenueSummary() {
   const [overview, transactionsPayload] = await Promise.all([
-    withMock(endpoints.dashboard.overview, { totalRevenue: 0 }),
-    withMock(`${endpoints.dashboard.transactions}?page=1&limit=200`, mockTransactions),
+    request(endpoints.dashboard.overview),
+    request(`${endpoints.dashboard.transactions}?page=1&limit=200`),
   ])
 
   const transactionRows = Array.isArray(transactionsPayload?.data) ? transactionsPayload.data : []
@@ -101,14 +66,13 @@ async function loadRevenueSummary() {
 }
 
 async function loadAllUsers({ blocked }) {
-  const fallback = blocked ? mockUsers.filter((user) => user.isBlocked) : mockUsers.filter((user) => !user.isBlocked)
   const pageSize = 100
   let page = 1
   let allRows = []
 
   while (true) {
     const query = `${endpoints.users.list}?page=${page}&limit=${pageSize}&blocked=${String(blocked)}`
-    const payload = await withMock(query, { data: fallback, pagination: { page: 1, pages: 1 } })
+    const payload = await request(query)
     const rows = normalizeUsers(payload)
     allRows = [...allRows, ...rows]
 
@@ -122,18 +86,18 @@ async function loadAllUsers({ blocked }) {
 
 export const api = {
   login: async ({ email, password }) => {
-    const response = await withMock(endpoints.auth.login, { token: 'mock-token', user: { email } }, { method: 'POST', body: { email, password } })
+    const response = await request(endpoints.auth.login, { method: 'POST', body: { email, password } })
     return {
       token: response?.accessToken || response?.token || null,
       user: response?.user,
     }
   },
-  verifyOtp: async ({ email, otp }) => withMock(endpoints.auth.verifyOtp, { success: true }, { method: 'POST', body: { email, otp } }),
-  requestPasswordReset: async ({ email }) => withMock(endpoints.auth.forgotPassword, { success: true }, { method: 'POST', body: { email } }),
+  verifyOtp: async ({ email, otp }) => request(endpoints.auth.verifyOtp, { method: 'POST', body: { email, otp } }),
+  requestPasswordReset: async ({ email }) => request(endpoints.auth.forgotPassword, { method: 'POST', body: { email } }),
   resetPassword: async ({ email, otp, newPassword }) =>
-    withMock(endpoints.auth.resetPassword, { success: true }, { method: 'POST', body: { email, otp, newPassword } }),
+    request(endpoints.auth.resetPassword, { method: 'POST', body: { email, otp, newPassword } }),
   changePassword: async ({ currentPassword, newPassword }) =>
-    withMock(endpoints.auth.changePassword, { success: true }, { method: 'PATCH', body: { currentPassword, newPassword } }),
+    request(endpoints.auth.changePassword, { method: 'PATCH', body: { currentPassword, newPassword } }),
 
   getDashboard: async () => loadDashboardData(),
 
@@ -145,20 +109,32 @@ export const api = {
     return loadAllUsers({ blocked: true })
   },
 
-  blockUser: async ({ userId }) => withMock(endpoints.users.block(userId), { success: true }, { method: 'PATCH' }),
-  unblockAccount: async ({ userId }) => withMock(endpoints.users.unblock(userId), { success: true }, { method: 'PATCH' }),
+  blockUser: async ({ userId }) => request(endpoints.users.block(userId), { method: 'PATCH' }),
+  unblockAccount: async ({ userId }) => request(endpoints.users.unblock(userId), { method: 'PATCH' }),
 
   getEarnings: async () => loadRevenueSummary(),
-  getTransactions: async () => normalizeTransactions(await withMock(`${endpoints.dashboard.transactions}?page=1&limit=300`, mockTransactions)),
+  getTransactions: async () => normalizeTransactions(await request(`${endpoints.dashboard.transactions}?page=1&limit=300`)),
 
-  getSubscriptions: async () => normalizeSubscriptions(await withMock(`${endpoints.subscriptions.list}?page=1&limit=300`, mockSubscriptionRows)),
+  getSubscriptions: async () => normalizeSubscriptions(await request(`${endpoints.subscriptions.list}?page=1&limit=300`)),
+  updateSubscriptionStatus: async ({ subscriptionId, status }) => {
+    const payload = await request(endpoints.subscriptions.updateStatus(subscriptionId), {
+      method: 'PATCH',
+      body: { status },
+    })
+    const [normalized] = normalizeSubscriptions([payload])
+    return normalized || null
+  },
+  updateUserSubscriptionStatus: async ({ userId, status, planType }) => {
+    const payload = await request(endpoints.subscriptions.updateUserStatus(userId), {
+      method: 'PATCH',
+      body: { status, planType },
+    })
+    const [normalized] = normalizeSubscriptions([payload])
+    return normalized || null
+  },
 
   getSubscriptionPricing: async () => {
-    const payload = await withMock(endpoints.dashboard.subscriptionPricing, {
-      monthlyPriceCents: 999,
-      yearlyPriceCents: 9999,
-      currency: 'usd',
-    })
+    const payload = await request(endpoints.dashboard.subscriptionPricing)
 
     return {
       monthlyFee: centsToPrice(payload?.monthlyPriceCents, payload?.currency),
@@ -170,65 +146,40 @@ export const api = {
   },
 
   updateSubscriptionPricing: async ({ monthlyPriceCents, yearlyPriceCents, currency }) =>
-    withMock(
-      endpoints.dashboard.subscriptionPricing,
-      {
-        success: true,
-        settings: {
-          monthlyPriceCents,
-          yearlyPriceCents,
-          currency,
-        },
-      },
-      {
-        method: 'PATCH',
-        body: { monthlyPriceCents, yearlyPriceCents, currency },
-      },
-    ),
+    request(endpoints.dashboard.subscriptionPricing, {
+      method: 'PATCH',
+      body: { monthlyPriceCents, yearlyPriceCents, currency },
+    }),
   createCoupon: async ({ code, discountPercentage, expiryDate }) =>
-    withMock(
-      endpoints.coupons.create,
-      { success: true, code, discountPercentage, expiryDate },
-      {
-        method: 'POST',
-        body: { code, discountPercentage, expiryDate },
-      },
-    ),
-  listCoupons: async () => withMock(endpoints.coupons.list, []),
+    request(endpoints.coupons.create, {
+      method: 'POST',
+      body: { code, discountPercentage, expiryDate },
+    }),
+  listCoupons: async () => request(endpoints.coupons.list),
   updateCoupon: async ({ couponId, discountPercentage, expiryDate }) =>
-    withMock(
-      endpoints.coupons.byId(couponId),
-      { success: true, id: couponId, discountPercentage, expiryDate },
-      {
-        method: 'PUT',
-        body: { discountPercentage, expiryDate },
-      },
-    ),
+    request(endpoints.coupons.byId(couponId), {
+      method: 'PUT',
+      body: { discountPercentage, expiryDate },
+    }),
   deleteCoupon: async ({ couponId }) =>
-    withMock(
-      endpoints.coupons.byId(couponId),
-      { success: true },
-      {
-        method: 'DELETE',
-      },
-    ),
+    request(endpoints.coupons.byId(couponId), {
+      method: 'DELETE',
+    }),
 
-  getReports: async () => normalizeReports(await withMock(endpoints.reports.list, reportMockRows)),
+  getReports: async () => normalizeReports(await request(endpoints.reports.list)),
 
   getProfile: async () =>
-    normalizeProfile(
-      await withMock(endpoints.profile, { username: 'userdemo', email: 'email@gmail.com', contactNo: '+1 222 333 4444', name: 'Mr. Admin' }),
-    ),
+    normalizeProfile(await request(endpoints.profile)),
 
   updateProfile: async ({ name, username, email, contactNo }) =>
-    withMock(endpoints.profile, { success: true }, { method: 'PATCH', body: { name, username, email, contactNo } }),
+    request(endpoints.profile, { method: 'PATCH', body: { name, username, email, contactNo } }),
 
-  getPrivacyPolicy: async () => toCmsContent(await withMock(endpoints.settings.list, []), 'privacy', mockCms.privacyPolicy),
-  upsertPrivacyPolicy: async ({ content }) => withMock(endpoints.settings.privacy, { success: true, content }, { method: 'PATCH', body: { text: content } }),
-  getAboutUs: async () => toCmsContent(await withMock(endpoints.settings.list, []), 'about', mockCms.aboutUs),
-  upsertAboutUs: async ({ content }) => withMock(endpoints.settings.about, { success: true, content }, { method: 'PATCH', body: { text: content } }),
-  getTermsAndConditions: async () => toCmsContent(await withMock(endpoints.settings.list, []), 'terms', mockCms.termsAndConditions),
-  upsertTermsAndConditions: async ({ content }) => withMock(endpoints.settings.terms, { success: true, content }, { method: 'PATCH', body: { text: content } }),
+  getPrivacyPolicy: async () => toCmsContent(await request(endpoints.settings.list), 'privacy'),
+  upsertPrivacyPolicy: async ({ content }) => request(endpoints.settings.privacy, { method: 'PATCH', body: { text: content } }),
+  getAboutUs: async () => toCmsContent(await request(endpoints.settings.list), 'about'),
+  upsertAboutUs: async ({ content }) => request(endpoints.settings.about, { method: 'PATCH', body: { text: content } }),
+  getTermsAndConditions: async () => toCmsContent(await request(endpoints.settings.list), 'terms'),
+  upsertTermsAndConditions: async ({ content }) => request(endpoints.settings.terms, { method: 'PATCH', body: { text: content } }),
 
   warnUser: async ({ userId, reportId, reason }) =>
     request(endpoints.reports.warn, { method: 'POST', body: { userId, reportId, reason } }),

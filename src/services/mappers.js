@@ -186,6 +186,7 @@ export function normalizeSubscriptions(payload) {
     status: pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY) === 'active' ? 'Paid' : 'Unpaid',
     plan: pick(row, ['plan', 'plans', 'subscriptionPlan', 'package', 'planType'], EMPTY),
     expirationDate: normalizeDateTime(pick(row, ['expirationDate', 'expiration_date', 'date', 'endDate', 'end_date', 'createdAt', 'created_at'], row?.expiryDate || EMPTY)),
+    hasSubscription: true,
   }))
 }
 
