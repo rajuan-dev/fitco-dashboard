@@ -47,9 +47,9 @@ export default function SubscriptionsPage({
           <span
             key={`status-${s.id}`}
             className={
-              s.status === 'Paid'
-                ? 'inline-flex rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
-                : 'inline-flex rounded-full bg-[#ffecec] px-2.5 py-1 text-xs font-semibold text-[#d94f4f]'
+          s.status === 'Paid'
+            ? 'inline-flex min-w-[80px] justify-center rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
+            : 'inline-flex min-w-[80px] justify-center rounded-full bg-[#ffecec] px-2.5 py-1 text-xs font-semibold text-[#d94f4f]'
             }
           >
             {s.status}
@@ -62,7 +62,7 @@ export default function SubscriptionsPage({
           </span>,
           <button
             key={`action-${s.id}`}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+            className={`inline-flex min-w-[120px] items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold transition ${
               s.status === 'Paid' ? 'bg-[#ffecec] text-[#d94f4f] hover:bg-[#ffd9d9]' : 'bg-[#e8f7ea] text-[#2d8f35] hover:bg-[#d0f0d3]'
             } ${updatingId === s.id || updatingId === s.userId ? 'opacity-70 cursor-not-allowed' : ''}`}
             type="button"
@@ -76,7 +76,16 @@ export default function SubscriptionsPage({
               })
             }
           >
-            {updatingId === s.id || updatingId === s.userId ? 'Updating...' : s.status === 'Paid' ? 'Mark Free' : 'Mark Paid'}
+            {updatingId === s.id || updatingId === s.userId ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Updating…
+              </span>
+            ) : s.status === 'Paid' ? (
+              'Mark Free'
+            ) : (
+              'Mark Paid'
+            )}
           </button>,
         ])}
       />
