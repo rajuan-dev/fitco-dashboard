@@ -4,6 +4,7 @@ export const routes = {
   forgot: '/auth/forgot-password',
   reset: '/auth/reset-password',
   dashboard: '/admin/dashboard',
+  foodDatabase: '/admin/food-database',
   users: '/admin/users',
   blockedUsers: '/admin/users/blocked',
   userDetails: '/admin/users/details',

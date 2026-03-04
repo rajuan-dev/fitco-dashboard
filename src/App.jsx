@@ -6,6 +6,7 @@ import { Field, InfoRow, Logo, ModalCard, PageLoader } from './components/UI'
 import { defaultRoute, routes } from './config/routes'
 import DashboardPage from './features/admin/dashboard/DashboardPage'
 import EarningsPage from './features/admin/earnings/EarningsPage'
+import FoodDatabasePage from './features/admin/foodDatabase/FoodDatabasePage'
 import ReportsPage from './features/admin/reports/ReportsPage'
 import SettingsPage from './features/admin/settings/SettingsPage'
 import SubscriptionsPage from './features/admin/subscriptions/SubscriptionsPage'
@@ -751,6 +752,8 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             onBlockUser={(user) => openBlockConfirm(user, 'block', routes.dashboard)}
           />
         ))}
+
+      {basePath === routes.foodDatabase && <FoodDatabasePage />}
 
       {basePath === routes.users &&
         (

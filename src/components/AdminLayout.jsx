@@ -5,6 +5,7 @@ import { navigate } from '../hooks/useRouter'
 
 const navItems = [
   { path: routes.dashboard, label: 'Dashboard', icon: 'dashboard' },
+  { path: routes.foodDatabase, label: 'Food Database', icon: 'database' },
   { path: routes.users, label: 'Users', icon: 'users' },
   { path: routes.earnings, label: 'Earnings', icon: 'chart' },
   { path: routes.subscriptions, label: 'Subscriptions', icon: 'crown' },
@@ -14,6 +15,7 @@ const navItems = [
 
 const titles = {
   [routes.dashboard]: 'Dashboard Overview',
+  [routes.foodDatabase]: 'Food Database',
   [routes.users]: 'User List',
   [routes.blockedUsers]: 'Blocked Users',
   [routes.earnings]: 'Earnings',
@@ -30,6 +32,7 @@ const titles = {
 }
 
 const backArrowPages = new Set([
+  routes.foodDatabase,
   routes.users,
   routes.blockedUsers,
   routes.earnings,
@@ -66,6 +69,16 @@ function Icon({ type, className = '' }) {
         <circle cx="17" cy="10" r="2" />
         <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
         <path d="M15 20c0-2.2 1.8-4 4-4" />
+      </svg>
+    )
+  }
+
+  if (type === 'database') {
+    return (
+      <svg viewBox="0 0 24 24" className={base} fill="none" stroke="currentColor" strokeWidth="2">
+        <ellipse cx="12" cy="5.5" rx="7" ry="2.5" />
+        <path d="M5 5.5v5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-5" />
+        <path d="M5 10.5v5C5 16.9 8.1 18 12 18s7-1.1 7-2.5v-5" />
       </svg>
     )
   }
@@ -157,6 +170,8 @@ export function AdminLayout({ path, children, adminProfile = {} }) {
   const initials = getInitials(adminProfile)
   const activeNav = path.startsWith('/admin/users')
     ? routes.users
+    : path.startsWith('/admin/food-database')
+      ? routes.foodDatabase
     : path.startsWith('/admin/earnings')
       ? routes.earnings
       : path.startsWith('/admin/subscriptions')
@@ -178,7 +193,14 @@ export function AdminLayout({ path, children, adminProfile = {} }) {
       return routes.settings
     }
     if (path === routes.profile) return routes.settings
-    if (path === routes.users || path === routes.earnings || path === routes.subscriptions || path === routes.reports || path === routes.settings) {
+    if (
+      path === routes.foodDatabase ||
+      path === routes.users ||
+      path === routes.earnings ||
+      path === routes.subscriptions ||
+      path === routes.reports ||
+      path === routes.settings
+    ) {
       return routes.dashboard
     }
     return routes.dashboard
