@@ -166,6 +166,30 @@ export const api = {
       method: 'DELETE',
     }),
 
+  listFoodDatabase: async ({ page = 1, limit = 10, search = '' } = {}) =>
+    request(`${endpoints.foodDatabase.list}?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`),
+  createFoodItem: async (payload) =>
+    request(endpoints.foodDatabase.create, {
+      method: 'POST',
+      body: payload,
+    }),
+  importFoodDatabaseCsv: async ({ csvContent }) =>
+    request(`${endpoints.foodDatabase.create}/import-csv`, {
+      method: 'POST',
+      body: { csvContent },
+    }),
+  getFoodItem: async ({ foodId }) => request(endpoints.foodDatabase.byId(foodId)),
+  updateFoodItem: async ({ foodId, ...payload }) =>
+    request(endpoints.foodDatabase.byId(foodId), {
+      method: 'PUT',
+      body: payload,
+    }),
+  deleteFoodItem: async ({ foodId }) =>
+    request(endpoints.foodDatabase.byId(foodId), {
+      method: 'DELETE',
+    }),
+  lookupFoodByBarcode: async ({ barcode }) => request(endpoints.foodDatabase.byBarcode(barcode)),
+
   getReports: async () => normalizeReports(await request(endpoints.reports.list)),
 
   getProfile: async () =>

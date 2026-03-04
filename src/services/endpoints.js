@@ -30,6 +30,12 @@ export const endpoints = {
     create: '/api/v1/coupons',
     byId: (couponId) => `/api/v1/coupons/${couponId}`,
   },
+  foodDatabase: {
+    list: '/api/v1/food-database',
+    create: '/api/v1/food-database',
+    byId: (foodId) => `/api/v1/food-database/${foodId}`,
+    byBarcode: (barcode) => `/api/v1/food-database/lookup/barcode/${barcode}`,
+  },
   reports: {
     list: '/api/v1/reports',
     warn: '/api/v1/reports/actions/warn',
