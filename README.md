@@ -1,84 +1,102 @@
-# Fitco Dashboard Frontend
+# Fitco Dashboard
 
-React + Vite implementation of the Fitco dashboard and auth screens from the provided design PDF.
+Fitco dashboard is a React + Vite admin panel for managing users, subscriptions, reports, CMS pages, and public legal pages.
 
-## Run
+## Quick Start
+
+### Option 1: Run locally
 
 ```bash
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-## Build
+Dashboard runs on:
+
+`http://localhost:5173`
+
+### Option 2: Run with Docker
+
+From the repository root:
 
 ```bash
-npm run lint
+docker compose up -d --build dashboard backend mongo
+```
+
+Then open:
+
+`http://localhost/`
+
+## Environment Setup
+
+Create `.env` from the example:
+
+```bash
+cp .env.example .env
+```
+
+Recommended local value:
+
+`VITE_API_BASE_URL=http://localhost:5000`
+
+Recommended Docker value:
+
+`VITE_API_BASE_URL=/`
+
+Other values:
+
+- `VITE_API_TIMEOUT_MS=15000`
+- `VITE_API_USE_MOCKS_ON_ERROR=false`
+
+## Scripts
+
+```bash
+npm run dev
 npm run build
+npm run preview
+npm run lint
 ```
 
-## Project Structure (Admin)
-
-```txt
-src/
-  features/admin/
-    dashboard/
-      DashboardPage.jsx
-      components/UserRatioChart.jsx
-    users/UsersPage.jsx
-    earnings/EarningsPage.jsx
-    subscriptions/SubscriptionsPage.jsx
-    reports/ReportsPage.jsx
-    settings/SettingsPage.jsx
-    shared/TableControls.jsx
-```
-
-## Routing
-
-This project uses a lightweight custom router based on `window.history`.
+## Main Routes
 
 ### Auth
+
 - `/auth/login`
 - `/auth/otp`
 - `/auth/forgot-password`
 - `/auth/reset-password`
 
 ### Admin
+
 - `/admin/dashboard`
 - `/admin/users`
 - `/admin/users/blocked`
-- `/admin/users/details`
-- `/admin/users/confirm-block`
 - `/admin/earnings`
-- `/admin/earnings/transaction`
 - `/admin/subscriptions`
-- `/admin/subscriptions/manage-fees`
 - `/admin/reports`
 - `/admin/profile`
 - `/admin/settings`
-- `/admin/settings/change-password`
-- `/admin/settings/forgot-password`
-- `/admin/settings/verify-otp`
-- `/admin/settings/privacy-policy`
-- `/admin/settings/about-us`
-- `/admin/settings/terms`
-- `/admin/logout-confirm`
 
-## Backend Integration
+### Public Pages
 
-1. Copy `.env.example` to `.env` and set `VITE_API_BASE_URL`.
-2. Optional: set `VITE_API_TIMEOUT_MS` (default: `15000`).
-3. Keep `VITE_API_USE_MOCKS_ON_ERROR=false` for production.
-4. Ensure backend endpoints follow `src/services/CONTRACTS.md`.
-5. If backend is not available and `VITE_API_BASE_URL` is empty, mock data is used automatically.
+- `/legal`
+- `/about`
+- `/privacy-policy`
+- `/terms-and-conditions`
 
-### API Behavior
+## Backend Connection
 
-- No `VITE_API_BASE_URL`: always use local mock data.
-- With `VITE_API_BASE_URL`:
-  - default: real API errors are surfaced to UI.
-  - if `VITE_API_USE_MOCKS_ON_ERROR=true`: failed API calls fallback to mock payloads.
+The dashboard expects the Fitco backend to be available.
 
-## Auth Guard
+If `VITE_API_BASE_URL=/`, the dashboard sends requests to the same domain and expects a reverse proxy to forward `/api/*` to the backend.
 
-- Admin routes are protected by token presence in `localStorage` (`fitco_auth_token`).
-- Logging out clears the token and redirects to `/auth/login`.
+That behavior is already configured in Docker with:
+
+- [nginx.conf](/D:/RAJUAN-PERSONAL/VSCODE/fitco/fitco-dashboard/nginx.conf)
+
+## Production Notes
+
+- Keep `VITE_API_USE_MOCKS_ON_ERROR=false`
+- Build the dashboard with the correct API base URL
+- Use the root `docker-compose.yml` if you want the easiest server deployment

@@ -1,6 +1,8 @@
 import { getToken } from './auth'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+const API_BASE_URL_RAW = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const API_USE_SAME_ORIGIN = API_BASE_URL_RAW === '/'
+const API_BASE_URL = API_USE_SAME_ORIGIN ? '' : API_BASE_URL_RAW.replace(/\/+$/, '')
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000)
 const API_USE_MOCKS_ON_ERROR = String(import.meta.env.VITE_API_USE_MOCKS_ON_ERROR || 'false').toLowerCase() === 'true'
 
@@ -15,7 +17,8 @@ export class ApiError extends Error {
 }
 
 function buildUrl(path) {
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return API_USE_SAME_ORIGIN ? normalizedPath : `${API_BASE_URL}${normalizedPath}`
 }
 
 async function parseJsonSafe(response) {
@@ -29,7 +32,7 @@ async function parseJsonSafe(response) {
 }
 
 export function hasLiveApi() {
-  return Boolean(API_BASE_URL)
+  return API_USE_SAME_ORIGIN || Boolean(API_BASE_URL)
 }
 
 export function shouldUseFallbackOnError() {
