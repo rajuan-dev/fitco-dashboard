@@ -21,6 +21,15 @@ function toCmsContent(listPayload, key, fallback = '') {
   return { content: found?.content || fallback }
 }
 
+function normalizeCmsDocument(payload, fallbackTitle = '') {
+  return {
+    key: payload?.key || '',
+    title: payload?.title || fallbackTitle,
+    content: payload?.content || '',
+    updatedAt: payload?.updatedAt || null,
+  }
+}
+
 async function loadDashboardData() {
   const [totals, userRatio] = await Promise.all([
     request(endpoints.dashboard.totals),
@@ -204,6 +213,9 @@ export const api = {
   upsertAboutUs: async ({ content }) => request(endpoints.settings.about, { method: 'PATCH', body: { text: content } }),
   getTermsAndConditions: async () => toCmsContent(await request(endpoints.settings.list), 'terms'),
   upsertTermsAndConditions: async ({ content }) => request(endpoints.settings.terms, { method: 'PATCH', body: { text: content } }),
+  getPublicPrivacyPolicy: async () => normalizeCmsDocument(await request(endpoints.settings.publicByKey('privacy')), 'Privacy Policy'),
+  getPublicAboutUs: async () => normalizeCmsDocument(await request(endpoints.settings.publicByKey('about')), 'About Us'),
+  getPublicTermsAndConditions: async () => normalizeCmsDocument(await request(endpoints.settings.publicByKey('terms')), 'Terms & Conditions'),
 
   warnUser: async ({ userId, reportId, reason }) =>
     request(endpoints.reports.warn, { method: 'POST', body: { userId, reportId, reason } }),

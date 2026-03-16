@@ -46,6 +46,7 @@ export const endpoints = {
   profile: '/api/v1/admin/profile',
   settings: {
     list: '/api/v1/cms',
+    publicByKey: (key) => `/api/v1/cms/public/${key}`,
     privacy: '/api/v1/cms/privacy-policy',
     about: '/api/v1/cms/about-us',
     terms: '/api/v1/cms/terms-conditions',

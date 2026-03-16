@@ -11,6 +11,7 @@ import ReportsPage from './features/admin/reports/ReportsPage'
 import SettingsPage from './features/admin/settings/SettingsPage'
 import SubscriptionsPage from './features/admin/subscriptions/SubscriptionsPage'
 import UsersPage from './features/admin/users/UsersPage'
+import { PublicCmsContentPage, PublicCmsHub } from './features/public/PublicCmsPages'
 import { useAsyncData } from './hooks/useAsyncData'
 import { navigate, useRouter } from './hooks/useRouter'
 import { api } from './services/api'
@@ -18,6 +19,17 @@ import { clearToken, isAuthenticated, setToken } from './services/auth'
 
 const isAuthRoute = (path) => path.startsWith('/auth')
 const isAdminRoute = (path) => path.startsWith('/admin')
+const publicRouteMap = {
+  [routes.publicPrivacy]: { key: 'privacy', title: 'Privacy Policy', description: 'Privacy disclosures and data handling information for Fitco.' },
+  [routes.publicAbout]: { key: 'about', title: 'About Us', description: 'Public company and product information about Fitco.' },
+  [routes.publicTerms]: { key: 'terms', title: 'Terms & Conditions', description: 'Terms that govern use of the Fitco app and services.' },
+}
+const publicHubItems = [
+  { path: routes.publicAbout, title: 'About Us', description: 'Company information and what Fitco provides.' },
+  { path: routes.publicPrivacy, title: 'Privacy Policy', description: 'How user data is collected, used, and protected.' },
+  { path: routes.publicTerms, title: 'Terms & Conditions', description: 'Usage terms for the mobile app and related services.' },
+]
+const isPublicRoute = (path) => path === routes.publicInfo || Boolean(publicRouteMap[path])
 const PAGE_SIZE = 8
 const getErrorMessage = (error, fallback) => error?.payload?.message || error?.message || fallback
 const getAdminDisplayName = (profile = {}) => {
@@ -89,12 +101,97 @@ function App() {
   }, [authenticated, path])
 
   return (
-    <main className={`app-bg min-h-screen ${isAdminRoute(path) ? 'p-0 md:p-0' : 'p-3 md:p-5'}`}>
+    <main className={`${isPublicRoute(path) ? 'min-h-screen bg-[#eef5ef]' : 'app-bg min-h-screen'} ${isAdminRoute(path) || isPublicRoute(path) ? 'p-0 md:p-0' : 'p-3 md:p-5'}`}>
       {isAuthRoute(path) ? <AuthRoutes onAuthSuccess={() => setAuthenticated(true)} /> : null}
       {isAdminRoute(path) ? <AdminRoutes path={path} onLogout={() => setAuthenticated(false)} pushToast={pushToast} /> : null}
-      {!isAuthRoute(path) && !isAdminRoute(path) && path !== '/' ? <UnknownRoute /> : null}
+      {isPublicRoute(path) ? <PublicRoutes path={path} /> : null}
+      {!isAuthRoute(path) && !isAdminRoute(path) && !isPublicRoute(path) && path !== '/' ? <UnknownRoute /> : null}
       <ToastStack toasts={toasts} />
     </main>
+  )
+}
+
+function PublicRoutes({ path }) {
+  const routeConfig = publicRouteMap[path]
+  const [publicPages, setPublicPages] = useState({})
+  const [publicLoadingKey, setPublicLoadingKey] = useState('')
+  const [publicError, setPublicError] = useState(null)
+  const copyPublicLink = useCallback(async (targetPath) => {
+    const href = `${window.location.origin}${targetPath}`
+    try {
+      await navigator.clipboard.writeText(href)
+    } catch {
+      window.prompt('Copy this public URL', href)
+    }
+  }, [])
+
+  useEffect(() => {
+    const suffix = 'Fitco'
+    if (path === routes.publicInfo) {
+      document.title = `Public Pages | ${suffix}`
+      return
+    }
+
+    const currentTitle = routeConfig?.title || 'Public Page'
+    document.title = `${currentTitle} | ${suffix}`
+  }, [path, routeConfig])
+
+  useEffect(() => {
+    if (!routeConfig?.key) return
+    if (publicPages[routeConfig.key]) {
+      setPublicError(null)
+      return
+    }
+
+    let active = true
+    setPublicLoadingKey(routeConfig.key)
+    setPublicError(null)
+
+    const loadPublicPage = async () => {
+      try {
+        let payload = null
+        if (routeConfig.key === 'privacy') payload = await api.getPublicPrivacyPolicy()
+        else if (routeConfig.key === 'about') payload = await api.getPublicAboutUs()
+        else payload = await api.getPublicTermsAndConditions()
+
+        if (!active) return
+        setPublicPages((prev) => ({ ...prev, [routeConfig.key]: payload }))
+      } catch (error) {
+        if (!active) return
+        setPublicError(error)
+      } finally {
+        if (active) {
+          setPublicLoadingKey('')
+        }
+      }
+    }
+
+    loadPublicPage()
+
+    return () => {
+      active = false
+    }
+  }, [publicPages, routeConfig])
+
+  if (path === routes.publicInfo) {
+    return <PublicCmsHub items={publicHubItems} onCopyLink={copyPublicLink} />
+  }
+
+  const currentPage = routeConfig?.key ? publicPages[routeConfig.key] || null : null
+  const loading = Boolean(routeConfig?.key) && !currentPage && publicLoadingKey === routeConfig.key
+
+  return (
+    <PublicCmsContentPage
+      page={currentPage}
+      loading={loading}
+      error={publicError}
+      currentPath={path}
+      onCopyLink={copyPublicLink}
+      relatedLinks={publicHubItems.map((item) => ({
+        ...item,
+        active: item.path === path,
+      }))}
+    />
   )
 }
 
@@ -910,15 +1007,29 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       ) : null}
 
       {basePath === routes.privacy && !privacyLoading ? (
-        <ContentManagementPage title="Privacy Policy" value={privacyText} onChange={setPrivacyText} onSave={savePrivacy} saving={savingCms} />
+        <ContentManagementPage
+          title="Privacy Policy"
+          value={privacyText}
+          onChange={setPrivacyText}
+          onSave={savePrivacy}
+          saving={savingCms}
+          publicPath={routes.publicPrivacy}
+        />
       ) : null}
 
       {basePath === routes.about && !aboutLoading ? (
-        <ContentManagementPage title="About Us" value={aboutText} onChange={setAboutText} onSave={saveAbout} saving={savingCms} />
+        <ContentManagementPage title="About Us" value={aboutText} onChange={setAboutText} onSave={saveAbout} saving={savingCms} publicPath={routes.publicAbout} />
       ) : null}
 
       {basePath === routes.terms && !termsLoading ? (
-        <ContentManagementPage title="Terms & Conditions" value={termsText} onChange={setTermsText} onSave={saveTerms} saving={savingCms} />
+        <ContentManagementPage
+          title="Terms & Conditions"
+          value={termsText}
+          onChange={setTermsText}
+          onSave={saveTerms}
+          saving={savingCms}
+          publicPath={routes.publicTerms}
+        />
       ) : null}
     </>
   )
@@ -957,7 +1068,16 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   )
 }
 
-function ContentManagementPage({ title, value, onChange, onSave, saving }) {
+function ContentManagementPage({ title, value, onChange, onSave, saving, publicPath }) {
+  const publicUrl = typeof window === 'undefined' ? publicPath : `${window.location.origin}${publicPath}`
+  const handleCopyPublicUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+    } catch {
+      window.prompt('Copy this public URL', publicUrl)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-[var(--fitco-border)] bg-white">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#e5eee6] bg-white/95 px-4 py-3 backdrop-blur md:px-6">
@@ -970,6 +1090,20 @@ function ContentManagementPage({ title, value, onChange, onSave, saving }) {
         </button>
       </div>
       <div className="p-4 md:p-6">
+        <div className="mb-4 rounded-2xl border border-[#dce8de] bg-[#f6fbf6] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#78907b]">Public URL</p>
+          <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <code className="block overflow-x-auto rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#2f9b38]">{publicUrl}</code>
+            <div className="flex flex-wrap gap-3">
+              <button type="button" className="btn-outline w-auto px-5" onClick={handleCopyPublicUrl}>
+                Copy URL
+              </button>
+              <button type="button" className="btn-outline w-auto px-5" onClick={() => navigate(publicPath)}>
+                Open public page
+              </button>
+            </div>
+          </div>
+        </div>
         <RichTextEditor value={value} onChange={onChange} />
       </div>
     </div>

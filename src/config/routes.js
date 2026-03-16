@@ -1,4 +1,8 @@
 export const routes = {
+  publicInfo: '/legal',
+  publicPrivacy: '/privacy-policy',
+  publicAbout: '/about',
+  publicTerms: '/terms-and-conditions',
   login: '/auth/login',
   otp: '/auth/otp',
   forgot: '/auth/forgot-password',
