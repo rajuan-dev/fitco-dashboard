@@ -11,7 +11,7 @@ import ReportsPage from './features/admin/reports/ReportsPage'
 import SettingsPage from './features/admin/settings/SettingsPage'
 import SubscriptionsPage from './features/admin/subscriptions/SubscriptionsPage'
 import UsersPage from './features/admin/users/UsersPage'
-import { PublicCmsContentPage, PublicCmsHub } from './features/public/PublicCmsPages'
+import { PublicCmsContentPage, PublicCmsHub, PublicLandingPage } from './features/public/PublicCmsPages'
 import { useAsyncData } from './hooks/useAsyncData'
 import { navigate, useRouter } from './hooks/useRouter'
 import { api } from './services/api'
@@ -23,13 +23,14 @@ const publicRouteMap = {
   [routes.publicPrivacy]: { key: 'privacy', title: 'Privacy Policy', description: 'Privacy disclosures and data handling information for Fitco.' },
   [routes.publicAbout]: { key: 'about', title: 'About Us', description: 'Public company and product information about Fitco.' },
   [routes.publicTerms]: { key: 'terms', title: 'Terms & Conditions', description: 'Terms that govern use of the Fitco app and services.' },
+  [routes.publicTermsLegacy]: { key: 'terms', title: 'Terms & Conditions', description: 'Terms that govern use of the Fitco app and services.' },
 }
 const publicHubItems = [
   { path: routes.publicAbout, title: 'About Us', description: 'Company information and what Fitco provides.' },
   { path: routes.publicPrivacy, title: 'Privacy Policy', description: 'How user data is collected, used, and protected.' },
   { path: routes.publicTerms, title: 'Terms & Conditions', description: 'Usage terms for the mobile app and related services.' },
 ]
-const isPublicRoute = (path) => path === routes.publicInfo || Boolean(publicRouteMap[path])
+const isPublicRoute = (path) => path === '/' || path === routes.publicInfo || Boolean(publicRouteMap[path])
 const PAGE_SIZE = 8
 const getErrorMessage = (error, fallback) => error?.payload?.message || error?.message || fallback
 const getAdminDisplayName = (profile = {}) => {
@@ -85,8 +86,8 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (path === '/') {
-      navigate(authenticated ? routes.dashboard : defaultRoute)
+    if (path === routes.publicTermsLegacy) {
+      navigate(routes.publicTerms)
       return
     }
 
@@ -172,6 +173,10 @@ function PublicRoutes({ path }) {
       active = false
     }
   }, [publicPages, routeConfig])
+
+  if (path === '/') {
+    return <PublicLandingPage />
+  }
 
   if (path === routes.publicInfo) {
     return <PublicCmsHub items={publicHubItems} onCopyLink={copyPublicLink} />

@@ -41,6 +41,101 @@ function PublicShell({ children, title, subtitle, eyebrow = 'Fitco Public Pages'
   )
 }
 
+export function PublicLandingPage() {
+  return (
+    <PublicShell
+      title="Fitness and nutrition support built for daily consistency."
+      subtitle="Fitco is a wellness platform focused on helping users build healthier routines through practical fitness guidance, nutrition tracking, structured progress visibility, and a more consistent coaching experience."
+      eyebrow="Fitco"
+    >
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="space-y-6">
+          <div className="rounded-[32px] border border-[#dce8de] bg-white p-6 shadow-[0_18px_60px_rgba(44,78,49,0.06)] md:p-8">
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(routes.publicInfo)}
+                className="rounded-full bg-[var(--fitco-green)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--fitco-green-dark)]"
+              >
+                View Legal Pages
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(routes.login)}
+                className="rounded-full border border-[#cfe1d1] bg-white px-6 py-3 text-sm font-semibold text-[#2f9b38] shadow-sm transition hover:bg-[#edf8ee]"
+              >
+                Dashboard Login
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-[#dce8de] bg-white p-6 shadow-[0_18px_60px_rgba(44,78,49,0.06)] md:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7c9384]">Core features</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-[24px] border border-[#e3ece4] bg-[#f8fbf8] p-5">
+                <h2 className="text-xl font-bold tracking-tight text-[#213546]">Nutrition support</h2>
+                <p className="mt-3 text-sm leading-6 text-[#5b707d]">
+                  Track food activity, support healthier eating habits, and keep progress visible in one place.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-[#e3ece4] bg-[#f8fbf8] p-5">
+                <h2 className="text-xl font-bold tracking-tight text-[#213546]">Fitness routine consistency</h2>
+                <p className="mt-3 text-sm leading-6 text-[#5b707d]">
+                  Encourage better adherence to wellness goals with a straightforward digital experience.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-[#e3ece4] bg-[#f8fbf8] p-5">
+                <h2 className="text-xl font-bold tracking-tight text-[#213546]">Progress visibility</h2>
+                <p className="mt-3 text-sm leading-6 text-[#5b707d]">
+                  Help users and administrators review activity, reports, and structured account information.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-[#e3ece4] bg-[#f8fbf8] p-5">
+                <h2 className="text-xl font-bold tracking-tight text-[#213546]">Coaching-ready workflow</h2>
+                <p className="mt-3 text-sm leading-6 text-[#5b707d]">
+                  Provide an app environment that supports guidance, accountability, and measurable improvement over time.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+          <div className="rounded-[32px] border border-[#dce8de] bg-[#f7fbf7] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7c9384]">Contact</p>
+            <p className="mt-3 text-sm leading-6 text-[#5b707d]">For support, compliance, and review inquiries:</p>
+            <a href="mailto:fahad@fitcoksa.com" className="mt-3 block text-sm font-semibold text-[#2f9b38]">
+              fahad@fitcoksa.com
+            </a>
+          </div>
+
+          <div className="rounded-[32px] border border-[#dce8de] bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7c9384]">Public links</p>
+            <div className="mt-4 space-y-2">
+              {[
+                { title: 'Legal Hub', path: routes.publicInfo },
+                { title: 'About', path: routes.publicAbout },
+                { title: 'Privacy Policy', path: routes.publicPrivacy },
+                { title: 'Terms & Conditions', path: routes.publicTerms },
+              ].map((item) => (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  className="flex w-full items-center justify-between rounded-2xl bg-[#f7fbf8] px-4 py-3 text-left text-sm font-semibold text-[#28404f] transition hover:bg-[#edf8ee] hover:text-[var(--fitco-green)]"
+                >
+                  <span>{item.title}</span>
+                  <span>→</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </PublicShell>
+  )
+}
+
 export function PublicCmsHub({ items, onCopyLink }) {
   return (
     <PublicShell
