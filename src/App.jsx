@@ -86,6 +86,11 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (path === '/') {
+      navigate(routes.login)
+      return
+    }
+
     if (path === routes.publicTermsLegacy) {
       navigate(routes.publicTerms)
       return
@@ -452,7 +457,6 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [blockedUsersState, setBlockedUsersState] = useState([])
   const [subscriptionsState, setSubscriptionsState] = useState([])
   const [subscriptionSearch, setSubscriptionSearch] = useState('')
-  const [updatingSubscriptionId, setUpdatingSubscriptionId] = useState(null)
   const [pendingUserAction, setPendingUserAction] = useState(null)
   const [selectedUser, setSelectedUser] = useState(null)
   const [selectedUserBlocked, setSelectedUserBlocked] = useState(false)
@@ -511,30 +515,13 @@ function AdminRoutes({ path, onLogout, pushToast }) {
     }
   }, [subscriptions, subscriptionsLoading])
 
-  const combinedSubscriptions = useMemo(() => {
-    const existingUserIds = new Set(subscriptionsState.map((item) => String(item.userId || '')))
-    const freeRows = activeUsers
-      .filter((user) => !existingUserIds.has(String(user.id)))
-      .map((user) => ({
-        id: `user-${user.id}`,
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        status: 'Free',
-        plan: '-',
-        expirationDate: '-',
-        hasSubscription: false,
-      }))
-    return [...subscriptionsState, ...freeRows]
-  }, [activeUsers, subscriptionsState])
-
   const filteredSubscriptions = useMemo(() => {
     const query = subscriptionSearch.trim().toLowerCase()
-    if (!query) return combinedSubscriptions
-    return combinedSubscriptions.filter((item) =>
+    if (!query) return subscriptionsState
+    return subscriptionsState.filter((item) =>
       [String(item.email || ''), String(item.name || '')].some((value) => value.toLowerCase().includes(query)),
     )
-  }, [combinedSubscriptions, subscriptionSearch])
+  }, [subscriptionsState, subscriptionSearch])
 
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(activeUsers.length / PAGE_SIZE))
@@ -626,33 +613,6 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const handleSubscriptionSearchChange = useCallback((value) => {
     setSubscriptionSearch(value)
   }, [])
-
-  const handleSubscriptionStatusUpdate = useCallback(
-    async ({ subscriptionId, nextStatus, userId, hasSubscription }) => {
-      if ((!subscriptionId && !userId) || !nextStatus) return
-      setUpdatingSubscriptionId(subscriptionId || userId)
-      try {
-        let updated = null
-        if (hasSubscription && subscriptionId) {
-          updated = await api.updateSubscriptionStatus({ subscriptionId, status: nextStatus })
-        } else if (userId) {
-          updated = await api.updateUserSubscriptionStatus({ userId, status: nextStatus })
-        }
-        if (updated) {
-          setSubscriptionsState((prev) => {
-            const others = prev.filter((item) => item.id !== updated.id && item.userId !== updated.userId)
-            return [updated, ...others]
-          })
-          pushToast(nextStatus === 'paid' ? 'User marked as paid.' : 'User marked as free.')
-        }
-      } catch (error) {
-        pushToast(getErrorMessage(error, 'Failed to update subscription status.'), 'error')
-      } finally {
-        setUpdatingSubscriptionId(null)
-      }
-    },
-    [pushToast],
-  )
 
   const handleConfirmUserAction = useCallback(async () => {
     if (!pendingUserAction?.user || !pendingUserAction?.action) {
@@ -913,9 +873,6 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             pageSize={PAGE_SIZE}
             totalItems={filteredSubscriptions.length}
             onPageChange={setSubscriptionsPage}
-            onManageFees={() => navigate(routes.manageFees)}
-            onUpdateStatus={handleSubscriptionStatusUpdate}
-            updatingId={updatingSubscriptionId}
             searchQuery={subscriptionSearch}
             onSearchChange={handleSubscriptionSearchChange}
           />

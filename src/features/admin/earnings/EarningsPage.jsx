@@ -18,13 +18,16 @@ export default function EarningsPage({ loading, earningsData, transactions, page
       </div>
       <BasicTable
         variant="earnings"
-        headers={['S.ID', 'Full Name', 'Trx ID', 'Plans', 'Price', 'Date', 'Action']}
+        headers={['S.ID', 'Full Name', 'Trx ID', 'Store', 'Plan', 'Price', 'Date', 'Action']}
         avatarColumnIndex={1}
         serialStart={(page - 1) * pageSize + 1}
         rows={transactions.map((t) => [
           t.id,
           t.name,
           t.displayTransactionId || t.trxId,
+          <span key={`platform-${t.id}`} className="inline-flex rounded-full bg-[#eef7ef] px-2.5 py-1 text-xs font-semibold capitalize text-[#2f8f37]">
+            {t.platform || '-'}
+          </span>,
           <span key={`plan-${t.id}`} className="inline-flex rounded-full bg-[#e9f6eb] px-2.5 py-1 text-xs font-semibold text-[#2f8f37]">
             {t.plan}
           </span>,

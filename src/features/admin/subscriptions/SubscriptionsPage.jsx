@@ -9,9 +9,6 @@ export default function SubscriptionsPage({
   pageSize,
   totalItems,
   onPageChange,
-  onManageFees,
-  onUpdateStatus,
-  updatingId,
   searchQuery = '',
   onSearchChange,
 }) {
@@ -31,28 +28,28 @@ export default function SubscriptionsPage({
           value={searchQuery}
           onChange={(event) => onSearchChange?.(event.target.value)}
         />
-        <button onClick={onManageFees} className="btn-primary w-auto px-5">
-          Manage Fees
-        </button>
       </div>
       <BasicTable
         variant="subscriptions"
-        headers={['S.ID', 'User', 'Email', 'Status', 'Plans', 'Expiration Date', 'Action']}
+        headers={['S.ID', 'User', 'Email', 'Store', 'Status', 'Plan', 'Expiration Date']}
         avatarColumnIndex={1}
         serialStart={(page - 1) * pageSize + 1}
         rows={subscriptions.map((s) => [
           s.id,
           s.name,
           s.email,
+          <span key={`platform-${s.id}`} className="inline-flex rounded-full bg-[#eef7ef] px-2.5 py-1 text-xs font-semibold capitalize text-[#2f8f37]">
+            {s.platform || '-'}
+          </span>,
           <span
             key={`status-${s.id}`}
             className={
-          s.status === 'Paid'
-            ? 'inline-flex min-w-[80px] justify-center rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
-            : 'inline-flex min-w-[80px] justify-center rounded-full bg-[#ffecec] px-2.5 py-1 text-xs font-semibold text-[#d94f4f]'
+              s.status === 'active'
+                ? 'inline-flex min-w-[80px] justify-center rounded-full bg-[#e8f7ea] px-2.5 py-1 text-xs font-semibold text-[#2d8f35]'
+                : 'inline-flex min-w-[80px] justify-center rounded-full bg-[#fff2e5] px-2.5 py-1 text-xs font-semibold text-[#bf6a1a]'
             }
           >
-            {s.status}
+            {s.statusLabel}
           </span>,
           <span key={`plan-sub-${s.id}`} className="font-medium text-[#2f8850]">
             {s.plan}
@@ -60,33 +57,6 @@ export default function SubscriptionsPage({
           <span key={`expiry-${s.id}`} className="text-[#4d6370]">
             {s.expirationDate}
           </span>,
-          <button
-            key={`action-${s.id}`}
-            className={`inline-flex min-w-[120px] items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-              s.status === 'Paid' ? 'bg-[#ffecec] text-[#d94f4f] hover:bg-[#ffd9d9]' : 'bg-[#e8f7ea] text-[#2d8f35] hover:bg-[#d0f0d3]'
-            } ${updatingId === s.id || updatingId === s.userId ? 'opacity-70 cursor-not-allowed' : ''}`}
-            type="button"
-            disabled={updatingId === s.id || updatingId === s.userId}
-            onClick={() =>
-              onUpdateStatus?.({
-                subscriptionId: s.hasSubscription ? s.id : null,
-                userId: s.userId,
-                nextStatus: s.status === 'Paid' ? 'free' : 'paid',
-                hasSubscription: Boolean(s.hasSubscription),
-              })
-            }
-          >
-            {updatingId === s.id || updatingId === s.userId ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Updating…
-              </span>
-            ) : s.status === 'Paid' ? (
-              'Mark Free'
-            ) : (
-              'Mark Paid'
-            )}
-          </button>,
         ])}
       />
       <PaginationBar currentPage={page} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />

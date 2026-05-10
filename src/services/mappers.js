@@ -167,6 +167,7 @@ export function normalizeTransactions(payload) {
       email: pick(row, ['email', 'userEmail', 'user_email'], row?.user?.email || EMPTY),
       trxId: pick(row, ['trxId', 'transaction_id', 'transactionId', 'reference'], '#-'),
       reference,
+      platform: pick(row, ['platform', 'source'], row?.meta?.platform || EMPTY),
       plan: pick(row, ['plan', 'plans', 'package', 'subscriptionPlan', 'planType'], EMPTY),
       price: normalizeCurrency(pick(row, ['price', 'amount', 'totalAmount', 'total_amount'], '$0.00')),
       date: normalizeDateTime(pick(row, ['date', 'created_at', 'createdAt'], row?.createdAt || EMPTY)),
@@ -183,7 +184,15 @@ export function normalizeSubscriptions(payload) {
     userId: unwrapValue(pick(row, ['userId', 'user_id', 'uid'], row?.user?._id || null)),
     name: pick(row, ['name', 'userName', 'user_name', 'fullName', 'full_name'], row?.user?.name || 'Unknown User'),
     email: pick(row, ['email'], row?.user?.email || EMPTY),
-    status: pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY) === 'active' ? 'Paid' : 'Unpaid',
+    status: pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY),
+    statusLabel:
+      pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY) === 'active'
+        ? 'Active'
+        : pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY) === 'expired'
+          ? 'Expired'
+          : String(pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY)).replace(/_/g, ' '),
+    platform: pick(row, ['platform', 'source'], EMPTY),
+    isActive: Boolean(pick(row, ['isActive', 'is_active'], false)),
     plan: pick(row, ['plan', 'plans', 'subscriptionPlan', 'package', 'planType'], EMPTY),
     expirationDate: normalizeDateTime(pick(row, ['expirationDate', 'expiration_date', 'date', 'endDate', 'end_date', 'createdAt', 'created_at'], row?.expiryDate || EMPTY)),
     hasSubscription: true,
