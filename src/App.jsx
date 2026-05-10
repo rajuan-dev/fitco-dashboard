@@ -1277,6 +1277,8 @@ function TransactionModal({ transaction, onClose }) {
     accountNo: '-',
     email: '-',
     price: '$0.00',
+    reportingPrice: '$0.00',
+    showReportingPrice: false,
     status: '-',
     reference: '#-',
   }
@@ -1290,7 +1292,8 @@ function TransactionModal({ transaction, onClose }) {
       <InfoRow k="A/C number" v={detail.accountNo || '-'} />
       <InfoRow k="Email" v={detail.email || '-'} />
       <InfoRow k="Status" v={detail.status || '-'} />
-      <InfoRow k="Transaction amount" v={detail.price || '$0.00'} />
+      <InfoRow k="Store charged amount" v={detail.price || '$0.00'} />
+      {detail.showReportingPrice ? <InfoRow k="USD converted amount" v={detail.reportingPrice || '$0.00'} /> : null}
       <div className="mt-7 grid gap-3 md:grid-cols-2">
         <button className="btn-outline" onClick={() => navigate(routes.earnings)}>
           Cancel

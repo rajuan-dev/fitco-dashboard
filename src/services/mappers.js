@@ -48,6 +48,13 @@ function normalizeCurrency(value) {
   return text.startsWith('$') ? text : /^\d+(\.\d+)?$/.test(text) ? `$${text}` : text
 }
 
+function formatCurrencyValue(amount, currency = 'USD') {
+  const numeric = Number(amount)
+  const code = String(currency || 'USD').trim().toUpperCase()
+  if (!Number.isFinite(numeric)) return `${code} 0.00`
+  return `${code} ${numeric.toFixed(2)}`
+}
+
 function normalizeRevenueValue(value) {
   if (value === undefined || value === null || value === '') return '$0.00'
   if (typeof value === 'number') return `$${value.toFixed(2)}`
@@ -158,6 +165,16 @@ export function normalizeTransactions(payload) {
     const userId = unwrapValue(pick(row, ['userId', 'user_id', 'uid', 'user._id'], row?.user?._id || null))
     const transactionId = resolveTransactionId(row, userId, index)
     const reference = pick(row, ['reference', 'trxId', 'transaction_id', 'transactionId'], '#-')
+    const originalAmount = row?.meta?.originalAmount
+    const originalCurrency = row?.meta?.originalCurrency
+    const reportingAmount = row?.meta?.reportingAmount ?? row?.amount
+    const reportingCurrency = row?.meta?.reportingCurrency ?? row?.currency ?? 'USD'
+    const hasOriginalPrice = originalAmount !== undefined && originalAmount !== null && originalCurrency
+    const actualPrice = hasOriginalPrice
+      ? formatCurrencyValue(originalAmount, originalCurrency)
+      : formatCurrencyValue(pick(row, ['amount', 'price', 'totalAmount', 'total_amount'], 0), row?.currency || 'USD')
+    const normalizedReportingPrice = formatCurrencyValue(reportingAmount, reportingCurrency)
+    const showReportingPrice = actualPrice !== normalizedReportingPrice
     return {
       id: normalizeIdentifier(unwrapValue(pick(row, ['_id', 'transactionId', 'transaction_id', 'sid', 'id'], null)), index),
       transactionId,
@@ -169,7 +186,9 @@ export function normalizeTransactions(payload) {
       reference,
       platform: pick(row, ['platform', 'source'], row?.meta?.platform || EMPTY),
       plan: pick(row, ['plan', 'plans', 'package', 'subscriptionPlan', 'planType'], EMPTY),
-      price: normalizeCurrency(pick(row, ['price', 'amount', 'totalAmount', 'total_amount'], '$0.00')),
+      price: actualPrice,
+      reportingPrice: normalizedReportingPrice,
+      showReportingPrice,
       date: normalizeDateTime(pick(row, ['date', 'created_at', 'createdAt'], row?.createdAt || EMPTY)),
       status: pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY),
       accountNo: pick(row, ['accountNo', 'accountNumber', 'account_no'], row?.meta?.last4 ? `**** **** **** ${row.meta.last4}` : EMPTY),

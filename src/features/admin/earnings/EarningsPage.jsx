@@ -32,7 +32,10 @@ export default function EarningsPage({ loading, earningsData, transactions, page
             {t.plan}
           </span>,
           <span key={`price-${t.id}`} className="font-semibold text-[#2f8850]">
-            {t.price}
+            <span>{t.price}</span>
+            {t.showReportingPrice ? (
+              <span className="block text-xs font-medium text-[#698574]">{t.reportingPrice}</span>
+            ) : null}
           </span>,
           <span key={`date-${t.id}`} className="text-[#4d6370]">
             {t.date}
