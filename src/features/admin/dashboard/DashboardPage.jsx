@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { UsersTable } from '../../../components/Tables'
 import UserRatioChart from './components/UserRatioChart'
 
@@ -17,9 +17,11 @@ function MetricCard({ eyebrow, value, label, trend }) {
   )
 }
 
-export default function DashboardPage({ data, users, onViewUser, onBlockUser }) {
-  const [selectedYear, setSelectedYear] = useState('2024')
-  const yearOptions = useMemo(() => ['2024', '2023', '2022'], [])
+export default function DashboardPage({ data, users, selectedYear, onYearChange, onViewUser, onBlockUser }) {
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    return Array.from({ length: 5 }, (_, index) => String(currentYear - index))
+  }, [])
   const chartData = useMemo(
     () =>
       (data.userRatio || []).map((value, i) => ({
@@ -36,7 +38,7 @@ export default function DashboardPage({ data, users, onViewUser, onBlockUser }) 
         <MetricCard eyebrow="Performance" value={data.totalRevenue} label="Total Revenue" trend="+8% vs last month" />
       </div>
 
-      <UserRatioChart data={chartData} selectedYear={selectedYear} onYearChange={setSelectedYear} yearOptions={yearOptions} />
+      <UserRatioChart data={chartData} selectedYear={selectedYear} onYearChange={onYearChange} yearOptions={yearOptions} />
 
       <UsersTable rows={users.slice(0, 8)} onView={onViewUser} onToggleBlock={onBlockUser} title="Recent Users" hideFooter />
     </div>

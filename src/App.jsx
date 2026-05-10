@@ -408,7 +408,8 @@ function AuthRoutes({ onAuthSuccess }) {
 }
 
 function AdminRoutes({ path, onLogout, pushToast }) {
-  const loadDashboard = useCallback(() => api.getDashboard(), [])
+  const [dashboardYear, setDashboardYear] = useState(String(new Date().getFullYear()))
+  const loadDashboard = useCallback(() => api.getDashboard({ year: dashboardYear }), [dashboardYear])
   const loadUsers = useCallback(() => api.getUsers(), [])
   const loadBlockedUsers = useCallback(() => api.getBlockedUsers(), [])
   const loadEarnings = useCallback(() => api.getEarnings(), [])
@@ -810,6 +811,8 @@ function AdminRoutes({ path, onLogout, pushToast }) {
           <DashboardPage
             data={dashboardData}
             users={activeUsers}
+            selectedYear={dashboardYear}
+            onYearChange={setDashboardYear}
             onViewUser={(user) => openUserDetails(user, false, routes.dashboard)}
             onBlockUser={(user) => openBlockConfirm(user, 'block', routes.dashboard)}
           />

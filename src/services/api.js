@@ -30,15 +30,17 @@ function normalizeCmsDocument(payload, fallbackTitle = '') {
   }
 }
 
-async function loadDashboardData() {
+async function loadDashboardData({ year } = {}) {
+  const selectedYear = Number(year) || new Date().getFullYear()
   const [totals, userRatio] = await Promise.all([
     request(endpoints.dashboard.totals),
-    request(`${endpoints.dashboard.userRatio}?year=${new Date().getFullYear()}`),
+    request(`${endpoints.dashboard.userRatio}?year=${selectedYear}`),
   ])
 
   return normalizeDashboard({
     ...totals,
     userRatio: userRatio?.monthly || [],
+    selectedYear,
   })
 }
 
@@ -108,7 +110,7 @@ export const api = {
   changePassword: async ({ currentPassword, newPassword }) =>
     request(endpoints.auth.changePassword, { method: 'PATCH', body: { currentPassword, newPassword } }),
 
-  getDashboard: async () => loadDashboardData(),
+  getDashboard: async ({ year } = {}) => loadDashboardData({ year }),
 
   getUsers: async () => {
     return loadAllUsers({ blocked: false })
