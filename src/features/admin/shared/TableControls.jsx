@@ -45,7 +45,7 @@ export function ListHeader({ buttonText, onButtonClick }) {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="relative min-w-[260px] flex-1">
         <input className="field pl-10" placeholder="Search User" />
-        <span className="absolute left-3 top-2.5 text-lg text-[#6a7f72]">⌕</span>
+        <span className="absolute left-4 top-2 text-lg text-[#6a7f72]">⌕</span>
       </div>
       <button onClick={onButtonClick} className="btn-primary w-auto px-5">
         {buttonText}
