@@ -1,4 +1,9 @@
+import { formatCurrencyDisplay, normalizeCurrencyCode, REPORTING_CURRENCY } from '../utils/currency'
+
 const EMPTY = '-'
+const regionNames = typeof Intl !== 'undefined' && typeof Intl.DisplayNames === 'function'
+  ? new Intl.DisplayNames(['en'], { type: 'region' })
+  : null
 
 function pick(obj, keys, fallback = EMPTY) {
   for (const key of keys) {
@@ -40,33 +45,15 @@ function normalizeDate(value) {
   return trimmed || EMPTY
 }
 
-function normalizeCurrency(value) {
-  if (value === undefined || value === null || value === '') return '$0.00'
-  if (typeof value === 'number') return `$${value.toFixed(2)}`
-  const text = String(value).trim()
-  if (!text) return '$0.00'
-  return text.startsWith('$') ? text : /^\d+(\.\d+)?$/.test(text) ? `$${text}` : text
+function formatCurrencyValue(amount, currency = REPORTING_CURRENCY) {
+  return formatCurrencyDisplay(amount, currency)
 }
 
-function formatCurrencyValue(amount, currency = 'USD') {
-  const numeric = Number(amount)
-  const code = String(currency || 'USD').trim().toUpperCase()
-  if (!Number.isFinite(numeric)) return `${code} 0.00`
-  return `${code} ${numeric.toFixed(2)}`
-}
-
-function normalizeRevenueValue(value) {
-  if (value === undefined || value === null || value === '') return '$0.00'
-  if (typeof value === 'number') return `$${value.toFixed(2)}`
-  const text = String(value).trim()
-  if (!text) return '$0.00'
-  if (text.startsWith('$')) {
-    const numeric = Number(text.replace('$', '').trim())
-    return Number.isFinite(numeric) ? `$${numeric.toFixed(2)}` : text
-  }
-  const numeric = Number(text)
-  if (Number.isFinite(numeric)) return `$${numeric.toFixed(2)}`
-  return text
+function normalizeRevenueValue(value, currency = REPORTING_CURRENCY) {
+  if (value === undefined || value === null || value === '') return formatCurrencyDisplay(0, currency)
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return formatCurrencyDisplay(numeric, currency)
+  return 'N/A'
 }
 
 function normalizeJoinedDate(value) {
@@ -95,6 +82,16 @@ function normalizeDateTime(value) {
     minute: '2-digit',
     hour12: true,
   }).format(date)
+}
+
+function formatRegionLabel(value) {
+  const code = String(value || '').trim().toUpperCase()
+  if (!/^[A-Z]{2,3}$/.test(code)) return null
+  try {
+    return regionNames?.of(code) || code
+  } catch {
+    return code
+  }
 }
 
 function resolveTransactionId(row, userId, index) {
@@ -132,9 +129,10 @@ function toDisplayTransactionId(transactionId, reference) {
 }
 
 export function normalizeDashboard(payload = {}) {
+  const baseCurrency = normalizeCurrencyCode(pick(payload, ['baseCurrency', 'base_currency'], REPORTING_CURRENCY), REPORTING_CURRENCY)
   return {
     totalUsers: pick(payload, ['totalUsers', 'total_users', 'usersTotal', 'users_total'], '0'),
-    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue', 'revenueTotal', 'revenue_total'], '0')),
+    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue', 'revenueTotal', 'revenue_total'], '0'), baseCurrency),
     userRatio: pick(payload, ['userRatio', 'user_ratio', 'monthlyUsers', 'monthly_users'], Array(12).fill(0)),
   }
 }
@@ -147,15 +145,18 @@ export function normalizeUsers(payload) {
     email: pick(row, ['email'], EMPTY),
     phone: pick(row, ['phone', 'phoneNo', 'phone_no'], EMPTY),
     joinedDate: normalizeJoinedDate(pick(row, ['joinedDate', 'joined_date', 'date', 'createdAt', 'created_at'], EMPTY)),
+    createdAt: pick(row, ['createdAt', 'created_at', 'joinedDate', 'joined_date', 'date'], null),
     isBlocked: Boolean(pick(row, ['isBlocked', 'is_blocked'], false)),
   }))
 }
 
 export function normalizeEarnings(payload = {}) {
+  const baseCurrency = normalizeCurrencyCode(pick(payload, ['baseCurrency', 'base_currency'], REPORTING_CURRENCY), REPORTING_CURRENCY)
   return {
-    today: normalizeRevenueValue(pick(payload, ['today', 'today_amount'], '0')),
-    thisMonth: normalizeRevenueValue(pick(payload, ['thisMonth', 'this_month'], '0')),
-    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue'], '0')),
+    today: normalizeRevenueValue(pick(payload, ['today', 'today_amount'], '0'), baseCurrency),
+    thisMonth: normalizeRevenueValue(pick(payload, ['thisMonth', 'this_month'], '0'), baseCurrency),
+    totalRevenue: normalizeRevenueValue(pick(payload, ['totalRevenue', 'total_revenue'], '0'), baseCurrency),
+    baseCurrency,
   }
 }
 
@@ -166,15 +167,22 @@ export function normalizeTransactions(payload) {
     const transactionId = resolveTransactionId(row, userId, index)
     const reference = pick(row, ['reference', 'trxId', 'transaction_id', 'transactionId'], '#-')
     const originalAmount = row?.meta?.originalAmount
-    const originalCurrency = row?.meta?.originalCurrency
-    const reportingAmount = row?.meta?.reportingAmount ?? row?.amount
-    const reportingCurrency = row?.meta?.reportingCurrency ?? row?.currency ?? 'USD'
-    const hasOriginalPrice = originalAmount !== undefined && originalAmount !== null && originalCurrency
-    const actualPrice = hasOriginalPrice
+    const originalCurrency = normalizeCurrencyCode(row?.meta?.originalCurrency || row?.currency || REPORTING_CURRENCY, REPORTING_CURRENCY)
+    const originalRegion = row?.meta?.originalRegion || row?.meta?.territory || row?.meta?.regionCode || null
+    const reportingAmount = row?.meta?.reportingAmount
+    const reportingCurrency = normalizeCurrencyCode(row?.meta?.reportingCurrency || REPORTING_CURRENCY, REPORTING_CURRENCY)
+    const hasOriginalPrice = originalAmount !== undefined && originalAmount !== null && row?.meta?.originalCurrency
+    const originalPrice = hasOriginalPrice
       ? formatCurrencyValue(originalAmount, originalCurrency)
-      : formatCurrencyValue(pick(row, ['amount', 'price', 'totalAmount', 'total_amount'], 0), row?.currency || 'USD')
-    const normalizedReportingPrice = formatCurrencyValue(reportingAmount, reportingCurrency)
-    const showReportingPrice = actualPrice !== normalizedReportingPrice
+      : formatCurrencyValue(pick(row, ['amount', 'price', 'totalAmount', 'total_amount'], 0), originalCurrency)
+    const normalizedReportingPrice =
+      reportingAmount !== undefined && reportingAmount !== null
+        ? formatCurrencyValue(reportingAmount, reportingCurrency)
+        : 'N/A'
+    const showReportingPrice = normalizedReportingPrice !== 'N/A'
+    const displayPrice = showReportingPrice ? normalizedReportingPrice : originalPrice
+    const showOriginalPrice = showReportingPrice && originalPrice !== normalizedReportingPrice
+    const originalRegionLabel = formatRegionLabel(originalRegion)
     return {
       id: normalizeIdentifier(unwrapValue(pick(row, ['_id', 'transactionId', 'transaction_id', 'sid', 'id'], null)), index),
       transactionId,
@@ -186,9 +194,13 @@ export function normalizeTransactions(payload) {
       reference,
       platform: pick(row, ['platform', 'source'], row?.meta?.platform || EMPTY),
       plan: pick(row, ['plan', 'plans', 'package', 'subscriptionPlan', 'planType'], EMPTY),
-      price: actualPrice,
+      price: displayPrice,
+      originalPrice,
       reportingPrice: normalizedReportingPrice,
       showReportingPrice,
+      showOriginalPrice,
+      originalRegionLabel,
+      baseCurrency: REPORTING_CURRENCY,
       date: normalizeDateTime(pick(row, ['date', 'created_at', 'createdAt'], row?.createdAt || EMPTY)),
       status: pick(row, ['status', 'paymentStatus', 'payment_status'], EMPTY),
       accountNo: pick(row, ['accountNo', 'accountNumber', 'account_no'], row?.meta?.last4 ? `**** **** **** ${row.meta.last4}` : EMPTY),

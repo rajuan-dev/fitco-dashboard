@@ -16,6 +16,7 @@ import { useAsyncData } from './hooks/useAsyncData'
 import { navigate, useRouter } from './hooks/useRouter'
 import { api } from './services/api'
 import { clearToken, isAuthenticated, setToken } from './services/auth'
+import { REPORTING_CURRENCY } from './utils/currency'
 
 const isAuthRoute = (path) => path.startsWith('/auth')
 const isAdminRoute = (path) => path.startsWith('/admin')
@@ -33,6 +34,10 @@ const publicHubItems = [
 const isPublicRoute = (path) => path === '/' || path === routes.publicInfo || Boolean(publicRouteMap[path])
 const PAGE_SIZE = 8
 const getErrorMessage = (error, fallback) => error?.payload?.message || error?.message || fallback
+const isSameCalendarDay = (left, right) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate()
 const getAdminDisplayName = (profile = {}) => {
   const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim()
   if (fullName) return fullName
@@ -464,6 +469,40 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [selectedUserSource, setSelectedUserSource] = useState(routes.users)
   const [selectedTransaction, setSelectedTransaction] = useState(null)
 
+  const userSummary = useMemo(() => {
+    const combined = [...activeUsers, ...blockedUsersState]
+    const seen = new Set()
+    const uniqueUsers = combined.filter((user) => {
+      const key = String(user?.id || '')
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+    const now = new Date()
+    let newUsersToday = 0
+    let newUsersThisMonth = 0
+
+    uniqueUsers.forEach((user) => {
+      const createdAt = user?.createdAt ? new Date(user.createdAt) : null
+      if (!createdAt || Number.isNaN(createdAt.getTime())) return
+
+      if (isSameCalendarDay(createdAt, now)) {
+        newUsersToday += 1
+      }
+
+      if (createdAt.getFullYear() === now.getFullYear() && createdAt.getMonth() === now.getMonth()) {
+        newUsersThisMonth += 1
+      }
+    })
+
+    return {
+      newUsersToday,
+      newUsersThisMonth,
+      totalUsers: uniqueUsers.length,
+    }
+  }, [activeUsers, blockedUsersState])
+
   useEffect(() => {
     if (privacyPayload?.content !== undefined) setPrivacyText(privacyPayload.content)
   }, [privacyPayload])
@@ -828,6 +867,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             page={usersPage}
             pageSize={PAGE_SIZE}
             totalItems={activeUsers.length}
+            summary={userSummary}
             toggleButtonText="Blocked Users"
             onTogglePage={() => navigate(routes.blockedUsers)}
             onViewUser={(user) => openUserDetails(user, false, routes.users)}
@@ -844,6 +884,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             page={blockedUsersPage}
             pageSize={PAGE_SIZE}
             totalItems={blockedUsersState.length}
+            summary={userSummary}
             blocked
             toggleButtonText="Active Users"
             onTogglePage={() => navigate(routes.users)}
@@ -1276,9 +1317,12 @@ function TransactionModal({ transaction, onClose }) {
     name: 'Unknown User',
     accountNo: '-',
     email: '-',
-    price: '$0.00',
-    reportingPrice: '$0.00',
+    price: `${REPORTING_CURRENCY} 0.00`,
+    originalPrice: `${REPORTING_CURRENCY} 0.00`,
+    reportingPrice: `${REPORTING_CURRENCY} 0.00`,
     showReportingPrice: false,
+    showOriginalPrice: false,
+    originalRegionLabel: null,
     status: '-',
     reference: '#-',
   }
@@ -1292,8 +1336,13 @@ function TransactionModal({ transaction, onClose }) {
       <InfoRow k="A/C number" v={detail.accountNo || '-'} />
       <InfoRow k="Email" v={detail.email || '-'} />
       <InfoRow k="Status" v={detail.status || '-'} />
-      <InfoRow k="Store charged amount" v={detail.price || '$0.00'} />
-      {detail.showReportingPrice ? <InfoRow k="USD converted amount" v={detail.reportingPrice || '$0.00'} /> : null}
+      <InfoRow k="SAR reporting amount" v={detail.reportingPrice || detail.price || `${REPORTING_CURRENCY} 0.00`} />
+      {detail.showOriginalPrice ? (
+        <InfoRow
+          k={detail.originalRegionLabel ? `Original charged amount (${detail.originalRegionLabel})` : 'Original charged amount'}
+          v={detail.originalPrice || 'N/A'}
+        />
+      ) : null}
       <div className="mt-7 grid gap-3 md:grid-cols-2">
         <button className="btn-outline" onClick={() => navigate(routes.earnings)}>
           Cancel

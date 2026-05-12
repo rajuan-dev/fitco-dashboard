@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useState } from 'react'
 import { PaginationBar } from '../shared/TableControls'
 import { api } from '../../../services/api'
 
@@ -207,6 +207,12 @@ export default function FoodDatabasePage() {
     setPage(1)
   }, [deferredQuery])
 
+  const pushToast = useCallback((message, type = 'success') => {
+    setToast({ message, type })
+    window.clearTimeout(pushToast.timeoutId)
+    pushToast.timeoutId = window.setTimeout(() => setToast(null), 2400)
+  }, [])
+
   useEffect(() => {
     let mounted = true
 
@@ -241,13 +247,7 @@ export default function FoodDatabasePage() {
     return () => {
       mounted = false
     }
-  }, [deferredQuery, page, reloadTick])
-
-  const pushToast = (message, type = 'success') => {
-    setToast({ message, type })
-    window.clearTimeout(pushToast.timeoutId)
-    pushToast.timeoutId = window.setTimeout(() => setToast(null), 2400)
-  }
+  }, [deferredQuery, page, pushToast, reloadTick])
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }))

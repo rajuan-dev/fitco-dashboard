@@ -33,8 +33,11 @@ export default function EarningsPage({ loading, earningsData, transactions, page
           </span>,
           <span key={`price-${t.id}`} className="font-semibold text-[#2f8850]">
             <span>{t.price}</span>
-            {t.showReportingPrice ? (
-              <span className="block text-xs font-medium text-[#698574]">{t.reportingPrice}</span>
+            {t.showOriginalPrice ? (
+              <span className="block text-xs font-medium text-[#698574]">
+                {t.originalRegionLabel ? `${t.originalRegionLabel}: ` : ''}
+                {t.originalPrice}
+              </span>
             ) : null}
           </span>,
           <span key={`date-${t.id}`} className="text-[#4d6370]">

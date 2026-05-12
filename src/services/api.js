@@ -9,10 +9,11 @@ import {
   normalizeTransactions,
   normalizeUsers,
 } from './mappers'
+import { REPORTING_CURRENCY, formatCurrencyDisplay } from '../utils/currency'
 
-function centsToPrice(cents, currency = 'USD') {
+function centsToPrice(cents, currency = REPORTING_CURRENCY) {
   const amount = Number(cents || 0) / 100
-  return `${currency.toUpperCase()} ${amount.toFixed(2)}`
+  return formatCurrencyDisplay(amount, currency)
 }
 
 function toCmsContent(listPayload, key, fallback = '') {
@@ -47,32 +48,36 @@ async function loadDashboardData({ year } = {}) {
 async function loadRevenueSummary() {
   const [overview, transactionsPayload] = await Promise.all([
     request(endpoints.dashboard.overview),
-    request(`${endpoints.dashboard.transactions}?page=1&limit=200`),
+    request(`${endpoints.dashboard.transactions}?page=1&limit=300`),
   ])
 
   const transactionRows = Array.isArray(transactionsPayload?.data) ? transactionsPayload.data : []
   const now = new Date()
-  let today = 0
-  let thisMonth = 0
+  let fallbackToday = 0
+  let fallbackThisMonth = 0
 
   for (const transaction of transactionRows) {
     if (transaction?.status !== 'paid') continue
     const createdAt = new Date(transaction?.createdAt)
     if (Number.isNaN(createdAt.getTime())) continue
 
+    const reportingAmount = Number(transaction?.meta?.reportingAmount)
+    if (!Number.isFinite(reportingAmount)) continue
+
     if (createdAt.toDateString() === now.toDateString()) {
-      today += Number(transaction?.amount || 0)
+      fallbackToday += reportingAmount
     }
 
     if (createdAt.getFullYear() === now.getFullYear() && createdAt.getMonth() === now.getMonth()) {
-      thisMonth += Number(transaction?.amount || 0)
+      fallbackThisMonth += reportingAmount
     }
   }
 
   return normalizeEarnings({
-    today,
-    thisMonth,
+    today: overview?.today ?? fallbackToday,
+    thisMonth: overview?.thisMonth ?? fallbackThisMonth,
     totalRevenue: overview?.totalRevenue || 0,
+    baseCurrency: overview?.baseCurrency || REPORTING_CURRENCY,
   })
 }
 
@@ -150,7 +155,7 @@ export const api = {
     return {
       monthlyFee: centsToPrice(payload?.monthlyPriceCents, payload?.currency),
       yearlyFee: centsToPrice(payload?.yearlyPriceCents, payload?.currency),
-      currency: payload?.currency || 'usd',
+      currency: payload?.currency || REPORTING_CURRENCY.toLowerCase(),
       monthlyPriceCents: payload?.monthlyPriceCents || 0,
       yearlyPriceCents: payload?.yearlyPriceCents || 0,
     }
