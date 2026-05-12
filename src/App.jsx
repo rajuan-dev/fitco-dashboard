@@ -849,6 +849,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
         ) : (
           <DashboardPage
             data={dashboardData}
+            totalRevenue={earningsData?.totalRevenue}
             users={activeUsers}
             selectedYear={dashboardYear}
             onYearChange={setDashboardYear}

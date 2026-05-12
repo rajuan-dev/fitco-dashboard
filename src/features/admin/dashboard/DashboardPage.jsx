@@ -11,13 +11,13 @@ function MetricCard({ eyebrow, value, label, trend }) {
           <p className="text-3xl font-bold tracking-tight text-[#203245] md:text-4xl">{value}</p>
           <p className="mt-1 text-sm font-semibold text-[#5f7482]">{label}</p>
         </div>
-        <span className="rounded-full bg-[#e8f7ea] px-3 py-1 text-xs font-semibold text-[#2d8f35]">{trend}</span>
+        {trend ? <span className="rounded-full bg-[#e8f7ea] px-3 py-1 text-xs font-semibold text-[#2d8f35]">{trend}</span> : null}
       </div>
     </div>
   )
 }
 
-export default function DashboardPage({ data, users, selectedYear, onYearChange, onViewUser, onBlockUser }) {
+export default function DashboardPage({ data, users, selectedYear, onYearChange, onViewUser, onBlockUser, totalRevenue }) {
   const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear()
     return Array.from({ length: 5 }, (_, index) => String(currentYear - index))
@@ -35,7 +35,7 @@ export default function DashboardPage({ data, users, selectedYear, onYearChange,
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
         <MetricCard eyebrow="Overview" value={data.totalUsers} label="Total Users" trend="+12% vs last month" />
-        <MetricCard eyebrow="Performance" value={data.totalRevenue} label="Total Revenue" trend="+8% vs last month" />
+        <MetricCard eyebrow="Performance" value={totalRevenue || data.totalRevenue} label="Total Revenue" />
       </div>
 
       <UserRatioChart data={chartData} selectedYear={selectedYear} onYearChange={onYearChange} yearOptions={yearOptions} />
