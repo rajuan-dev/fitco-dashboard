@@ -77,6 +77,17 @@ const toDateTimeLocalValue = (value) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
+const isCouponExpired = (expiryDate) => {
+  if (!expiryDate) return false
+  const expiry = new Date(expiryDate)
+  return !Number.isNaN(expiry.getTime()) && expiry <= new Date()
+}
+
+const isCouponActive = (coupon = {}) => {
+  if (coupon.isActive === false) return false
+  return !isCouponExpired(coupon.expiryDate)
+}
+
 function App() {
   const { path } = useRouter()
   const [authenticated, setAuthenticated] = useState(() => isAuthenticated())
@@ -449,8 +460,8 @@ function AdminRoutes({ path, onLogout, pushToast }) {
   const [subscriptionConfig, setSubscriptionConfig] = useState({
     monthlyFee: '9.99',
     yearlyFee: '99.99',
-    couponCode: 'PREMIUM50',
-    discountPercent: 10,
+    couponCode: '',
+    discountPercent: 20,
     couponExpiry: '',
   })
   const [usersPage, setUsersPage] = useState(1)
@@ -920,6 +931,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
             onPageChange={setSubscriptionsPage}
             searchQuery={subscriptionSearch}
             onSearchChange={handleSubscriptionSearchChange}
+            onManageDiscounts={() => navigate(routes.manageFees)}
           />
         )}
 
@@ -1063,7 +1075,7 @@ function AdminRoutes({ path, onLogout, pushToast }) {
       ) : null}
       {path === routes.transaction ? <TransactionModal transaction={selectedTransaction} onClose={() => navigate(routes.earnings)} /> : null}
       {path === routes.manageFees ? (
-        <ManageFeesModal
+        <ManageReferralCodeModal
           config={subscriptionConfig}
           onConfigChange={updateSubscriptionConfig}
           pushToast={pushToast}
@@ -1356,23 +1368,24 @@ function TransactionModal({ transaction, onClose }) {
   )
 }
 
-function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
-  const [monthlyFee, setMonthlyFee] = useState(config.monthlyFee)
-  const [yearlyFee, setYearlyFee] = useState(config.yearlyFee)
+function ManageReferralCodeModal({ config, onConfigChange, pushToast, onClose }) {
   const [couponCode, setCouponCode] = useState(config.couponCode)
-  const [discountPercent, setDiscountPercent] = useState(config.discountPercent)
   const [couponExpiry, setCouponExpiry] = useState(config.couponExpiry || '')
   const [couponExpiryDate, setCouponExpiryDate] = useState(config.couponExpiry ? config.couponExpiry.split('T')[0] : '')
   const [couponExpiryTime, setCouponExpiryTime] = useState(config.couponExpiry ? config.couponExpiry.split('T')[1] : '')
-  const [saving, setSaving] = useState(false)
+  const [coupons, setCoupons] = useState([])
+  const [selectedCouponId, setSelectedCouponId] = useState('')
+  const [loadingCoupons, setLoadingCoupons] = useState(true)
   const [addingCoupon, setAddingCoupon] = useState(false)
   const [removingCoupon, setRemovingCoupon] = useState(false)
 
+  // New local UI state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [copiedId, setCopiedId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+
   useEffect(() => {
-    setMonthlyFee(config.monthlyFee)
-    setYearlyFee(config.yearlyFee)
     setCouponCode(config.couponCode)
-    setDiscountPercent(config.discountPercent)
     setCouponExpiry(config.couponExpiry || '')
     setCouponExpiryDate(config.couponExpiry ? config.couponExpiry.split('T')[0] : '')
     setCouponExpiryTime(config.couponExpiry ? config.couponExpiry.split('T')[1] : '')
@@ -1381,85 +1394,63 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
   useEffect(() => {
     let isMounted = true
 
-    const loadCoupon = async () => {
+    const loadCoupons = async () => {
       try {
         const couponsPayload = await api.listCoupons()
-        const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
-        const latest = coupons[0]
-        if (!latest || !isMounted) return
+        const rows = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+        if (!isMounted) return
 
-        setCouponCode(String(latest.code || ''))
-        setDiscountPercent(Number(latest.discountPercentage || 0))
-        const localExpiry = toDateTimeLocalValue(latest.expiryDate)
-        setCouponExpiry(localExpiry)
-        setCouponExpiryDate(localExpiry ? localExpiry.split('T')[0] : '')
-        setCouponExpiryTime(localExpiry ? localExpiry.split('T')[1] : '')
+        setCoupons(rows)
+
+        const latest = rows[0]
+        if (latest) {
+          const localExpiry = toDateTimeLocalValue(latest.expiryDate)
+          setSelectedCouponId(latest._id || latest.id || '')
+          setCouponCode(String(latest.code || ''))
+          setCouponExpiry(localExpiry)
+          setCouponExpiryDate(localExpiry ? localExpiry.split('T')[0] : '')
+          setCouponExpiryTime(localExpiry ? localExpiry.split('T')[1] : '')
+        } else {
+          setSelectedCouponId('')
+        }
       } catch {
         // Keep manual fields when coupons cannot be loaded.
+      } finally {
+        if (isMounted) {
+          setLoadingCoupons(false)
+        }
       }
     }
 
-    loadCoupon()
+    loadCoupons()
     return () => {
       isMounted = false
     }
   }, [])
 
-  const decreaseDiscount = () => setDiscountPercent((prev) => Math.max(0, prev - 1))
-  const increaseDiscount = () => setDiscountPercent((prev) => Math.min(100, prev + 1))
-  const handleDiscountInput = (value) => {
-    const digitsOnly = value.replace(/[^\d]/g, '')
-    if (!digitsOnly) {
-      setDiscountPercent(0)
-      return
-    }
-    const parsed = Number(digitsOnly)
-    setDiscountPercent(Math.min(100, Math.max(0, parsed)))
+  const populateFormFromCoupon = (coupon) => {
+    const localExpiry = toDateTimeLocalValue(coupon?.expiryDate)
+    setSelectedCouponId(coupon?._id || coupon?.id || '')
+    setCouponCode(String(coupon?.code || ''))
+    setCouponExpiry(localExpiry)
+    setCouponExpiryDate(localExpiry ? localExpiry.split('T')[0] : '')
+    setCouponExpiryTime(localExpiry ? localExpiry.split('T')[1] : '')
   }
 
-  const handleSave = async () => {
-    const validMonthly = Number(monthlyFee)
-    const validYearly = Number(yearlyFee)
-
-    if (!Number.isFinite(validMonthly) || validMonthly <= 0 || !Number.isFinite(validYearly) || validYearly <= 0) {
-      pushToast('Please enter valid monthly and yearly prices.', 'error')
-      return
-    }
-
-    setSaving(true)
-    try {
-      await api.updateSubscriptionPricing({
-        monthlyPriceCents: Math.round(validMonthly * 100),
-        yearlyPriceCents: Math.round(validYearly * 100),
-        currency: 'usd',
-      })
-
-      onConfigChange({
-        monthlyFee: validMonthly.toFixed(2),
-        yearlyFee: validYearly.toFixed(2),
-        couponCode: couponCode.trim() || 'PREMIUM50',
-        discountPercent,
-      })
-      pushToast('Subscription settings updated successfully.')
-      onClose?.()
-    } catch (error) {
-      pushToast(getErrorMessage(error, 'Failed to update subscription settings.'), 'error')
-    } finally {
-      setSaving(false)
-    }
+  const resetForm = () => {
+    setSelectedCouponId('')
+    setCouponCode('')
+    setCouponExpiry('')
+    setCouponExpiryDate('')
+    setCouponExpiryTime('')
   }
 
   const handleAddCoupon = async () => {
     const code = couponCode.trim().toUpperCase()
-    const discount = Number(discountPercent)
     const expiryRaw = couponExpiry.trim()
 
     if (!code) {
       pushToast('Coupon code is required.', 'error')
-      return
-    }
-    if (!Number.isInteger(discount) || discount <= 0 || discount > 100) {
-      pushToast('Discount must be an integer between 1 and 100.', 'error')
       return
     }
     if (!expiryRaw) {
@@ -1474,29 +1465,36 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
 
     setAddingCoupon(true)
     try {
-      const couponsPayload = await api.listCoupons()
-      const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
-      const existing = coupons.find((coupon) => String(coupon?.code || '').toUpperCase() === code)
-
-      if (existing?._id || existing?.id) {
+      if (selectedCouponId) {
         await api.updateCoupon({
-          couponId: existing._id || existing.id,
-          discountPercentage: discount,
+          couponId: selectedCouponId,
+          code,
+          discountPercentage: 20,
           expiryDate: expiry.toISOString(),
         })
       } else {
         await api.createCoupon({
           code,
-          discountPercentage: discount,
+          discountPercentage: 20,
           expiryDate: expiry.toISOString(),
         })
       }
+      const couponsPayload = await api.listCoupons()
+      const rows = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+      setCoupons(rows)
+      const updated = rows.find((coupon) => String(coupon?.code || '').toUpperCase() === code) || rows[0]
+      if (updated) {
+        populateFormFromCoupon(updated)
+      }
+
+      const nextCode = updated?.code || code
+      const nextExpiry = updated?.expiryDate ? toDateTimeLocalValue(updated.expiryDate) : toDateTimeLocalValue(expiry.toISOString())
       onConfigChange({
-        couponCode: code,
-        discountPercent: discount,
-        couponExpiry: toDateTimeLocalValue(expiry.toISOString()),
+        couponCode: nextCode,
+        discountPercent: 20,
+        couponExpiry: nextExpiry,
       })
-      pushToast(existing ? 'Coupon updated successfully.' : 'Coupon added successfully.')
+      pushToast(selectedCouponId ? 'Coupon updated successfully.' : 'Coupon added successfully.')
     } catch (error) {
       pushToast(getErrorMessage(error, 'Failed to add coupon.'), 'error')
     } finally {
@@ -1514,152 +1512,439 @@ function ManageFeesModal({ config, onConfigChange, pushToast, onClose }) {
     setCouponExpiry(`${nextDate}T${nextTime || '23:59'}`)
   }
 
-  const setExpiryPreset = (daysToAdd) => {
-    const preset = new Date()
-    preset.setDate(preset.getDate() + daysToAdd)
-    preset.setHours(23, 59, 0, 0)
-    const local = toDateTimeLocalValue(preset.toISOString())
-    setCouponExpiry(local)
-    setCouponExpiryDate(local.split('T')[0] || '')
-    setCouponExpiryTime(local.split('T')[1] || '23:59')
+  const applyPreset = (days) => {
+    const now = new Date()
+    let expiryDate
+    if (days === 'year') {
+      expiryDate = new Date(now.getFullYear(), 11, 31, 23, 59, 0)
+    } else {
+      expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+    }
+    
+    const formatted = toDateTimeLocalValue(expiryDate.toISOString())
+    setCouponExpiry(formatted)
+    setCouponExpiryDate(formatted ? formatted.split('T')[0] : '')
+    setCouponExpiryTime(formatted ? formatted.split('T')[1] : '')
   }
 
-  const handleRemoveCoupon = async () => {
-    const code = couponCode.trim().toUpperCase()
-    if (!code) {
-      pushToast('Enter coupon code to remove.', 'error')
-      return
-    }
+  const handleRemoveCoupon = async (couponIdToRemove) => {
+    if (!couponIdToRemove) return
 
     setRemovingCoupon(true)
     try {
+      await api.deleteCoupon({ couponId: couponIdToRemove })
       const couponsPayload = await api.listCoupons()
-      const coupons = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
-      const existing = coupons.find((coupon) => String(coupon?.code || '').toUpperCase() === code)
-
-      if (!(existing?._id || existing?.id)) {
-        pushToast('Coupon not found.', 'error')
-        return
+      const rows = Array.isArray(couponsPayload) ? couponsPayload : Array.isArray(couponsPayload?.data) ? couponsPayload.data : []
+      setCoupons(rows)
+      
+      if (couponIdToRemove === selectedCouponId) {
+        onConfigChange({
+          couponCode: '',
+          couponExpiry: '',
+        })
+        if (rows[0]) {
+          populateFormFromCoupon(rows[0])
+        } else {
+          resetForm()
+        }
       }
-
-      await api.deleteCoupon({ couponId: existing._id || existing.id })
-      onConfigChange({
-        couponCode: '',
-        couponExpiry: '',
-      })
-      setCouponCode('')
-      setCouponExpiry('')
-      setCouponExpiryDate('')
-      setCouponExpiryTime('')
-      pushToast('Coupon removed successfully.')
+      pushToast('Coupon deleted successfully.')
     } catch (error) {
-      pushToast(getErrorMessage(error, 'Failed to remove coupon.'), 'error')
+      pushToast(getErrorMessage(error, 'Failed to delete coupon.'), 'error')
     } finally {
       setRemovingCoupon(false)
     }
   }
 
+  const copyToClipboard = async (code, id) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 1500)
+      pushToast('Code copied to clipboard!')
+    } catch {
+      pushToast('Failed to copy code.', 'error')
+    }
+  }
+
+  const getExpiryCountdown = (expiry) => {
+    if (!expiry) return ''
+    const date = new Date(expiry)
+    if (Number.isNaN(date.getTime())) return ''
+    const diff = date.getTime() - Date.now()
+    if (diff < 0) return 'Expired'
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    
+    if (days > 0) return `${days}d ${hours}h left`
+    if (hours > 0) return `${hours}h ${mins}m left`
+    return `${mins}m left`
+  }
+
+  const filteredCoupons = coupons.filter(coupon => 
+    String(coupon.code || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const presets = [
+    { label: '+7 Days', value: 7 },
+    { label: '+30 Days', value: 30 },
+    { label: '+90 Days', value: 90 },
+    { label: 'End of Year', value: 'year' },
+  ]
+
   return (
-    <ModalCard title="Manage Fees" max="max-w-4xl" onClose={onClose}>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-4 md:border-r md:border-[#cde2cf] md:pr-6">
-          <h4 className="text-xl font-semibold text-[#2e3d4d] md:text-2xl">Subscriptions Fees</h4>
-          <div className="rounded-xl border border-[#dfe8e1] p-4">
-            <p className="mb-2 text-base md:text-lg">Premium monthly plan</p>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6a7d88]">$</span>
-              <input className="field pl-8" value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} />
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#dfe8e1] p-4">
-            <p className="mb-2 text-base md:text-lg">Premium yearly plan</p>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6a7d88]">$</span>
-              <input className="field pl-8" value={yearlyFee} onChange={(event) => setYearlyFee(event.target.value)} />
-            </div>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <h4 className="text-xl font-semibold text-[#2e3d4d] md:text-2xl">Coupons</h4>
-          <div className="rounded-xl border border-[#dfe8e1] p-4">
-            <p className="mb-2 text-base md:text-lg">Coupon Code</p>
-            <input className="field" value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} />
-            <p className="my-3 text-base md:text-lg">Discount Value</p>
-            <div className="flex items-center gap-4 text-base md:text-lg">
-              <button type="button" className="grid h-8 w-8 place-content-center rounded-full bg-[#efefef]" onClick={decreaseDiscount}>
-                -
-              </button>
-              <div className="relative w-[92px]">
-                <input
-                  className="field h-10 pr-7 text-center"
-                  value={discountPercent}
-                  onChange={(event) => handleDiscountInput(event.target.value)}
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#6a7d88]">%</span>
-              </div>
-              <button type="button" className="grid h-8 w-8 place-content-center rounded-full bg-[#d7f0d8] text-[#44b249]" onClick={increaseDiscount}>
-                +
-              </button>
-            </div>
-            <p className="mb-2 mt-4 text-base md:text-lg">Expiry Date & Time</p>
-            <div className="grid gap-3 md:grid-cols-2">
+    <ModalCard title="Manage Subscriptions & Referrals" subtitle="Create and manage promotional discount codes with a fixed 20% discount." max="max-w-4xl" onClose={onClose}>
+      <div className="relative mt-2">
+        {/* Main Side-by-Side Grid */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:divide-x md:divide-[#edf2ee]">
+          
+          {/* Left Column: Coupon List */}
+          <div className="space-y-4 md:col-span-6 pr-1">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7b8e99]">Date</p>
+                <h4 className="text-base font-bold text-[#2a3946]">All Referral Codes</h4>
+                <p className="text-xs text-[#73838d]">Select, edit, or delete coupon codes</p>
+              </div>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--fitco-border)] bg-[#fbfefb] px-3 py-1.5 text-xs font-bold text-[var(--fitco-green-dark)] transition hover:bg-[#eef8ef] hover:border-[#b4d4b8]"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>New Code</span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <span className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-[#8a9ca8]">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search referral codes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="field !pl-10"
+              />
+            </div>
+
+            {/* List Body */}
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              {loadingCoupons ? (
+                <div className="rounded-xl border border-[#e6eee7] bg-[#fbfefb] p-4 text-center text-sm text-[#60717d]">
+                  Loading referral codes...
+                </div>
+              ) : filteredCoupons.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#d9e6db] bg-[#fbfefb] p-8 text-center text-sm text-[#60717d]">
+                  {searchQuery ? 'No matching codes found.' : 'No referral codes yet. Create the first one on the right.'}
+                </div>
+              ) : (
+                filteredCoupons.map((coupon) => {
+                  const couponId = coupon._id || coupon.id || ''
+                  const active = couponId === selectedCouponId
+                  const isExpired = isCouponExpired(coupon.expiryDate)
+                  const isActiveStatus = isCouponActive(coupon)
+                  return (
+                    <div
+                      key={couponId}
+                      className={`flex flex-col gap-2.5 rounded-xl border p-3.5 transition ${
+                        active
+                          ? 'border-[#7fc685] bg-[#f2fbf3] shadow-xs'
+                          : 'border-[#e3ece4] bg-white hover:border-[#cfe0d2] hover:bg-[#f7fbf7]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-sm font-bold tracking-wider text-[#223343] bg-gray-50 border border-gray-150 px-2 py-0.5 rounded">
+                            {coupon.code}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(coupon.code, couponId)}
+                            className="p-1 rounded-md text-[#889aa8] hover:bg-[#edf2ee] transition hover:text-[#4a5b68]"
+                            title="Copy code"
+                          >
+                            {copiedId === couponId ? (
+                              <svg className="h-3.5 w-3.5 text-[var(--fitco-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                          isActiveStatus
+                            ? 'bg-green-50 text-green-700 border border-green-100'
+                            : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
+                          {isActiveStatus ? 'Active' : coupon.isActive === false ? 'Inactive' : 'Expired'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-[#73838d]">
+                        <div className="flex items-center gap-1">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className={!isActiveStatus ? 'text-red-500 font-medium' : 'text-[var(--fitco-green-dark)] font-medium'}>
+                            {coupon.isActive === false ? 'Manually inactive' : isExpired ? 'Expired' : getExpiryCountdown(coupon.expiryDate)}
+                          </span>
+                        </div>
+                        <span className="font-semibold text-gray-500">
+                          {coupon.expiryDate ? new Intl.DateTimeFormat('en-US', {
+                            month: 'short',
+                            day: '2-digit',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          }).format(new Date(coupon.expiryDate)) : '-'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 mt-0.5 border-t border-[#edf2ee]">
+                        <span className="text-[11px] font-bold text-[var(--fitco-green-dark)] bg-[#e7f7e8] px-2 py-0.5 rounded border border-[#ccdbcf]">
+                          20% OFF
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => populateFormFromCoupon(coupon)}
+                            className="flex items-center gap-1 text-xs font-bold text-[#5c6e7e] hover:text-[var(--fitco-green)] hover:bg-[#eef6ef] px-2 py-1.5 rounded transition border border-transparent hover:border-[#ccdcca]"
+                            title="Edit Code"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(couponId)}
+                            className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1.5 rounded transition border border-transparent hover:border-red-100"
+                            title="Delete Code"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Code Form */}
+          <div className="space-y-4 md:col-span-6 md:pl-6">
+            <div className="flex items-center justify-between pb-1">
+              <div>
+                <h4 className="text-base font-bold text-[#2a3946]">
+                  {selectedCouponId ? 'Edit Referral Code' : 'Create Referral Code'}
+                </h4>
+                <p className="text-xs text-[#73838d]">
+                  {selectedCouponId ? 'Modify details of the selected code' : 'Add a new referral discount code'}
+                </p>
+              </div>
+              {selectedCouponId && (
+                <span className="text-[10px] font-bold text-[var(--fitco-green-dark)] bg-[#e7f7e8] border border-[var(--fitco-border)] px-2.5 py-1 rounded">
+                  Editing Code
+                </span>
+              )}
+            </div>
+
+            {/* Code Field */}
+            <div>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-[#5c6e7e] uppercase tracking-wider">Referral Code</span>
+                <input
+                  type="text"
+                  className="field uppercase font-mono tracking-widest text-center text-lg font-bold placeholder:normal-case placeholder:font-sans placeholder:tracking-normal"
+                  value={couponCode}
+                  placeholder="e.g., PREMIUM50"
+                  onChange={(event) => setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                />
+              </label>
+            </div>
+
+            {/* Discount Percentage Field (Read Only) */}
+            <div>
+              <label className="block opacity-90">
+                <span className="mb-1.5 block text-xs font-bold text-[#5c6e7e] uppercase tracking-wider">Discount Percentage</span>
+                <div className="relative">
+                  <input
+                    type="text"
+                    className="field bg-gray-50 border-gray-200 text-gray-400 font-bold"
+                    value="20% OFF"
+                    disabled
+                  />
+                  <span className="absolute inset-y-0 right-3.5 flex items-center">
+                    <span className="text-[10px] font-extrabold text-[var(--fitco-green-dark)] bg-[#e7f7e8] px-2 py-0.5 rounded border border-[var(--fitco-border)]">
+                      FIXED RATE
+                    </span>
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Date & Time Fields */}
+            <div className="grid gap-3 grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-[#5c6e7e] uppercase tracking-wider">Expiry Date</span>
                 <input
                   type="date"
-                  className="field"
+                  className="field text-sm"
                   value={couponExpiryDate}
                   onChange={(event) => updateExpiryFromParts(event.target.value, couponExpiryTime)}
                 />
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7b8e99]">Time</p>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-[#5c6e7e] uppercase tracking-wider">Expiry Time</span>
                 <input
                   type="time"
-                  className="field"
+                  className="field text-sm"
                   value={couponExpiryTime}
                   onChange={(event) => updateExpiryFromParts(couponExpiryDate, event.target.value)}
                 />
+              </label>
+            </div>
+
+            {/* Quick Expiry Presets */}
+            <div>
+              <span className="mb-1.5 block text-xs font-bold text-[#5c6e7e] uppercase tracking-wider">Quick Expiry Presets</span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => applyPreset(preset.value)}
+                    className="rounded-lg border border-[#ccdbcf] bg-white py-1.5 text-[11px] font-bold text-[#5c6e7e] transition hover:border-[var(--fitco-green)] hover:bg-[#f2fbf3] hover:text-[var(--fitco-green-dark)]"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(7)}>
-                +7 days
-              </button>
-              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(30)}>
-                +30 days
-              </button>
-              <button type="button" className="rounded-lg border border-[#cde2cf] bg-[#f5fbf5] px-3 py-1.5 text-xs font-semibold text-[#2f9b38]" onClick={() => setExpiryPreset(90)}>
-                +90 days
-              </button>
+
+            {/* Countdown / Status Box */}
+            <div className={`rounded-xl border p-3.5 text-xs flex items-center gap-2 ${
+              couponExpiry && !Number.isNaN(new Date(couponExpiry).getTime())
+                ? new Date(couponExpiry) < new Date()
+                  ? 'bg-red-50/70 border-red-100 text-red-600 font-medium'
+                  : 'bg-[#f6fbf6] border-[#dce8de] text-[var(--fitco-green-dark)] font-medium'
+                : 'bg-gray-50/50 border-gray-150 text-[#60717d]'
+            }`}>
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                {couponExpiry && !Number.isNaN(new Date(couponExpiry).getTime())
+                  ? new Date(couponExpiry) < new Date()
+                    ? `Expired on ${new Intl.DateTimeFormat('en-US', {
+                        month: 'short',
+                        day: '2-digit',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      }).format(new Date(couponExpiry))}`
+                    : `Active until ${new Intl.DateTimeFormat('en-US', {
+                        month: 'short',
+                        day: '2-digit',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      }).format(new Date(couponExpiry))}`
+                  : 'Choose when the referral code should expire.'}
+              </span>
             </div>
-            <p className="mt-2 text-xs text-[#7b8e99]">
-              {couponExpiry && !Number.isNaN(new Date(couponExpiry).getTime())
-                ? `Selected expiry: ${new Intl.DateTimeFormat('en-US', {
-                    month: 'short',
-                    day: '2-digit',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
-                  }).format(new Date(couponExpiry))}`
-                : 'Coupon will expire automatically at the selected local date and time.'}
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <button className="btn-primary" onClick={handleAddCoupon} disabled={addingCoupon || removingCoupon}>
-              {addingCoupon ? 'Adding Coupon...' : '+ Add / Update Coupon'}
-            </button>
-            <button className="btn-outline" onClick={handleRemoveCoupon} disabled={addingCoupon || removingCoupon}>
-              {removingCoupon ? 'Removing...' : 'Remove Coupon'}
-            </button>
+
+            {/* Form Action Buttons */}
+            <div className="flex gap-2 pt-3 border-t border-[#edf2ee]">
+              <button
+                type="button"
+                className="btn-primary flex-1 py-2"
+                onClick={handleAddCoupon}
+                disabled={addingCoupon || removingCoupon}
+              >
+                {addingCoupon ? 'Saving...' : selectedCouponId ? 'Save Changes' : 'Create Code'}
+              </button>
+              {(selectedCouponId || couponCode || couponExpiryDate || couponExpiryTime) && (
+                <button
+                  type="button"
+                  className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 transition"
+                  onClick={resetForm}
+                >
+                  Clear Form
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="mt-6">
-        <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Updating...' : 'Update fee'}
-        </button>
+
+        {/* Modal Outer Action Buttons (Close Only) */}
+        <div className="mt-6 flex justify-end gap-3 border-t border-[#edf2ee] pt-4">
+          <button
+            type="button"
+            className="rounded-xl border border-[#d4e2d6] bg-white px-6 py-2.5 text-sm font-semibold text-[#5a6f7b] transition hover:bg-[#f6faf7]"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Inline Self-Contained Delete Confirmation Overlay */}
+        {confirmDeleteId && (
+          <div className="absolute inset-0 z-20 flex flex-col justify-center items-center bg-white/95 rounded-3xl p-6 text-center backdrop-blur-xs">
+            <div className="max-w-sm space-y-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-[#1e2d3d]">Delete Referral Code?</h4>
+                <p className="mt-2 text-sm text-[#73838d]">
+                  Are you sure you want to delete code <span className="font-mono font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">{coupons.find(c => (c._id || c.id) === confirmDeleteId)?.code}</span>? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = confirmDeleteId
+                    setConfirmDeleteId(null)
+                    handleRemoveCoupon(id)
+                  }}
+                  className="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ModalCard>
   )

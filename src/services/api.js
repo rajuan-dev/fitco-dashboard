@@ -172,10 +172,10 @@ export const api = {
       body: { code, discountPercentage, expiryDate },
     }),
   listCoupons: async () => request(endpoints.coupons.list),
-  updateCoupon: async ({ couponId, discountPercentage, expiryDate }) =>
+  updateCoupon: async ({ couponId, code, discountPercentage, expiryDate }) =>
     request(endpoints.coupons.byId(couponId), {
       method: 'PUT',
-      body: { discountPercentage, expiryDate },
+      body: { code, discountPercentage, expiryDate },
     }),
   deleteCoupon: async ({ couponId }) =>
     request(endpoints.coupons.byId(couponId), {

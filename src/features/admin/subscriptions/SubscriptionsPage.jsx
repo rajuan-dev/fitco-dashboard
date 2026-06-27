@@ -11,6 +11,7 @@ export default function SubscriptionsPage({
   onPageChange,
   searchQuery = '',
   onSearchChange,
+  onManageDiscounts,
 }) {
   if (loading) return <PageLoader />
 
@@ -28,6 +29,9 @@ export default function SubscriptionsPage({
           value={searchQuery}
           onChange={(event) => onSearchChange?.(event.target.value)}
         />
+        <button className="btn-primary w-auto px-5" onClick={onManageDiscounts}>
+          Manage Subscription
+        </button>
       </div>
       <BasicTable
         variant="subscriptions"
