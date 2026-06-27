@@ -20,6 +20,7 @@ const titles = {
   [routes.blockedUsers]: 'Blocked Users',
   [routes.earnings]: 'Earnings',
   [routes.subscriptions]: 'Subscriptions',
+  [routes.manageFees]: 'Referral Discounts',
   [routes.reports]: 'Reports',
   [routes.profile]: 'Profile',
   [routes.settings]: 'Settings',
@@ -37,6 +38,7 @@ const backArrowPages = new Set([
   routes.blockedUsers,
   routes.earnings,
   routes.subscriptions,
+  routes.manageFees,
   routes.reports,
   routes.profile,
   routes.settings,
@@ -198,6 +200,7 @@ export function AdminLayout({ path, children, adminProfile = {} }) {
       path === routes.users ||
       path === routes.earnings ||
       path === routes.subscriptions ||
+      path === routes.manageFees ||
       path === routes.reports ||
       path === routes.settings
     ) {
